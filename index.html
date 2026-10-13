@@ -97,10 +97,10 @@
   </section>
 
   <section class="card" id="clipCard" hidden>
-    <div class="step"><span class="dots">+</span>ส่งคลิป YouTube หรือ TikTok ให้ ACE เปิด (ไม่บังคับ)</div>
-    <label for="video">ลิงก์ YouTube หรือ TikTok</label>
-    <input id="video" inputmode="url" placeholder="https://youtu.be/... หรือ https://vt.tiktok.com/..." autocomplete="off">
-    <label for="vstart">เริ่มที่ (ไม่ใส่ = YouTube: ช่วงที่คนดูซ้ำมากที่สุด · TikTok: ต้นคลิป)</label>
+    <div class="step"><span class="dots">+</span>ส่งคลิป TikTok หรือ YouTube ให้ ACE เปิดปิดท้าย (ไม่บังคับ)</div>
+    <label for="video">ลิงก์ TikTok หรือ YouTube</label>
+    <input id="video" inputmode="url" placeholder="https://vt.tiktok.com/... หรือ https://youtu.be/..." autocomplete="off">
+    <label for="vstart">เริ่มที่ (ไม่ใส่ = TikTok: ต้นคลิป · YouTube: ช่วงที่คนดูซ้ำมากที่สุด)</label>
     <input id="vstart" placeholder="เช่น 1:15" autocomplete="off">
     <div class="hint" id="clipHint"></div>
   </section>
@@ -194,7 +194,7 @@ function clipShown() {
   const on = Number($("amount").value) >= C.videoMinAmount;
   $("clipCard").hidden = !on;
   $("clipHint").className = "hint";
-  $("clipHint").textContent = `ยอด ${C.videoMinAmount} บาทขึ้นไป · เล่นในจอ ACE ${C.videoSeconds} วินาที · เจ้าของช่องกดตัดได้ถ้าไม่เหมาะ`;
+  $("clipHint").textContent = `ยอด ${C.videoMinAmount} บาทขึ้นไป · ACE เปิดในจอหลังอ่านโดเนต ${C.videoSeconds} วินาที · เจ้าของช่องกดตัดได้ถ้าไม่เหมาะ`;
   return on;
 }
 
@@ -254,7 +254,7 @@ $("send").onclick = async () => {
   let clip = null;
   if (clipShown() && $("video").value.trim()) {
     const found = parseClip($("video").value.trim());
-    if (!found) { $("clipHint").className = "hint bad"; $("clipHint").textContent = "ใช้ลิงก์คลิป YouTube หรือ TikTok เท่านั้น"; return say("ลิงก์คลิปไม่ถูกต้อง", "bad"); }
+    if (!found) { $("clipHint").className = "hint bad"; $("clipHint").textContent = "ใช้ลิงก์คลิป TikTok หรือ YouTube เท่านั้น"; return say("ลิงก์คลิปไม่ถูกต้อง", "bad"); }
     const typed = seconds($("vstart").value);
     if (Number.isNaN(typed) || (typed !== null && typed > 21600)) return say("เวลาเริ่มคลิปไม่ถูกต้อง ใช้แบบ 1:15", "bad");
     const start = typed !== null ? typed : found.start;

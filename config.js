@@ -4,7 +4,7 @@ window.DONATE_CONFIG = {
   promptpay: "0850235251",      // เบอร์พร้อมเพย์ (หรือเลขบัตร 13 หลัก)
   minAmount: 20,
   videoMinAmount: 50,  // ส่งคลิป YouTube ได้ตั้งแต่ยอดนี้ (ต้องตรงกับ ACEACE และ setup-video.sql)
-  videoSeconds: 20,
+  videoSeconds: 30,
   quickAmounts: [20, 50, 100],
   // จาก Supabase > Project Settings > API
   supabaseUrl: "https://qftetivangjrmyyrsqsn.supabase.co",

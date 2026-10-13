@@ -25,6 +25,14 @@
   var whole = function (v) { v = parseInt(v, 10); return isFinite(v) && v >= 0 && v <= 21600 ? v : 0; };
   var start = whole(q.get('start')), end = whole(q.get('end')), mute = q.get('mute') === '1';
   var told = {};
+  // a clip shorter than its seconds (a 12 s TikTok on a 30 s slot) plays again from its start until they are used;
+  // the seconds count only while it actually plays, so loading and ads never eat them (2026-10-13)
+  var length = end > start ? end - start : 0, played = 0, last = null;
+  var count = function (now) {  // now: the video's own time; a jump (seek, loop, ad) is not counted
+    if (last !== null && now > last && now - last < 1.5) played += now - last;
+    last = now;
+    return length && played >= length;
+  };
   var tell = function (what) {  // 'started' | 'ended' | 'failed', once each
     if (told[what] || window.parent === window) return;
     told[what] = true;
@@ -56,7 +64,10 @@
       if (type === 'onPlayerReady') { send('seekTo', start); send('play'); unmute(); }
       else if (type === 'onStateChange' && value === 1) { unmute(); tell('started'); }
       else if (type === 'onMute' && value === true) unmute();
-      else if (type === 'onStateChange' && value === 0) tell('ended');
+      else if (type === 'onStateChange' && value === 0) {
+        if (length && played < length - 1) { last = null; send('seekTo', start); send('play'); }  // again from its start
+        else tell('ended');
+      }
       else if (type === 'onPlayerError') {
         var code = value && value.errorCode;
         // 3002: the browser blocked playing with sound; play on muted rather than lose the clip
@@ -66,7 +77,7 @@
       else if (type === 'onCurrentTime' && value) {
         var now = value.currentTime;
         if (!placed) { placed = true; if (Math.abs(now - start) > 1.5) { send('seekTo', start); return; } }  // resumed elsewhere
-        if (end > start && now >= end) { send('pause'); tell('ended'); }
+        if (count(now)) { send('pause'); tell('ended'); }
       }
     });
     return;
@@ -77,16 +88,26 @@
     var player = new YT.Player('clip', {
       videoId: id, width: '100%', height: '100%',
       playerVars: { autoplay: 1, controls: 0, disablekb: 1, fs: 0, rel: 0, playsinline: 1, iv_load_policy: 3,
-                    start: start, end: end > start ? end : undefined, mute: mute ? 1 : 0, origin: location.origin },
+                    start: start, mute: mute ? 1 : 0, origin: location.origin },
       events: {
         onReady: function (e) { if (mute) e.target.mute(); e.target.playVideo(); },
         onStateChange: function (e) {
           if (e.data === YT.PlayerState.PLAYING && player.getCurrentTime() >= start - 1) tell('started');
-          if (e.data === YT.PlayerState.ENDED) tell('ended');
+          if (e.data === YT.PlayerState.ENDED) {
+            if (length && played < length - 1) { last = null; player.seekTo(start, true); player.playVideo(); }  // a short video: again
+            else tell('ended');
+          }
         },
         onError: function () { tell('failed'); }
       }
     });
+    // the clip's seconds, counted from the video's own clock while it plays (an ad runs on its own clock)
+    setInterval(function () {
+      if (told.ended || !player.getPlayerState || player.getPlayerState() !== YT.PlayerState.PLAYING) { last = null; return; }
+      var now = player.getCurrentTime();
+      if (now < start - 1) { last = null; return; }
+      if (count(now)) { player.pauseVideo(); tell('ended'); }
+    }, 250);
     var frame = player.getIframe && player.getIframe();
     if (frame) { frame.allow = 'autoplay; encrypted-media'; frame.referrerPolicy = 'strict-origin-when-cross-origin'; }
   };
