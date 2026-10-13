@@ -3,65 +3,108 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0b0d">
 <title>โดเนท</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@900&family=Bai+Jamjuree:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#fff6fa; --card:#fff; --ink:#3a2b33; --muted:#8a7480; --accent:#e85d9a; --line:#f0d9e4; --ok:#2e9d5b; --bad:#d64545; }
+  :root { --bg:#0b0b0d; --panel:#141416; --card:#191919; --line:#252525; --field:#0f0f11; --field-line:#2f2f35;
+          --ink:#ececec; --muted:#9a9aa3; --dim:#7d7d86; --accent:#b9a6ff; --accent-deep:#221d33; --accent-line:#3a3350;
+          --ok:#a8f0c6; --bad:#ff9a9a; }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font-family:Kanit, sans-serif; }
-  main { max-width:460px; margin:0 auto; padding:24px 16px 48px; }
-  h1 { text-align:center; margin:8px 0 20px; font-size:26px; }
-  h1 span { color:var(--accent); }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:16px; }
-  .step { font-weight:600; margin-bottom:10px; }
-  label { display:block; font-size:14px; color:var(--muted); margin:10px 0 4px; }
-  input, textarea { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font:inherit; background:#fff; color:var(--ink); }
-  textarea { resize:vertical; min-height:70px; }
-  .quick { display:flex; gap:8px; margin-top:8px; }
-  .quick button { flex:1; padding:8px; border:1px solid var(--accent); background:#fff; color:var(--accent); border-radius:10px; font:inherit; cursor:pointer; }
-  #qr { display:flex; justify-content:center; margin:14px 0 6px; }
-  #qr svg { width:220px; height:220px; }
-  .center { text-align:center; color:var(--muted); font-size:14px; }
-  .drop { display:block; border:2px dashed var(--line); border-radius:12px; padding:20px; text-align:center; color:var(--muted); cursor:pointer; }
-  .drop img { max-width:100%; max-height:220px; border-radius:8px; }
-  #send { width:100%; padding:14px; border:0; border-radius:12px; background:var(--accent); color:#fff; font:600 18px Kanit, sans-serif; cursor:pointer; }
-  #send:disabled { opacity:.5; cursor:default; }
-  #msg { margin-top:12px; text-align:center; min-height:1.4em; }
+  html { background:var(--bg); }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Bai Jamjuree", sans-serif; -webkit-font-smoothing:antialiased; }
+  main { max-width:460px; margin:0 auto; padding:24px 16px 48px; display:flex; flex-direction:column; gap:16px; }
+  .dots { font-family:Doto, monospace; font-weight:900; }
+
+  .top { display:flex; justify-content:space-between; align-items:center; }
+  .brand { font-size:15px; letter-spacing:3px; color:var(--accent); }
+  .air { display:flex; align-items:center; gap:8px; border:1px solid var(--accent-line); border-radius:999px; padding:5px 12px; font-size:13px; letter-spacing:2px; color:var(--accent); }
+  .air i { width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); animation:pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity:.35; } }
+
+  .hero { background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:26px 18px 22px; display:flex; flex-direction:column; align-items:center; gap:16px; }
+  #face { display:grid; grid-template-columns:repeat(15, 9px); gap:4px; }
+  #face b { width:9px; height:9px; border-radius:50%; background:#1f1d26; }
+  #face b.on { background:var(--accent); box-shadow:0 0 6px rgba(185,166,255,.8); }
+  .hero p { margin:0; font-size:13px; color:var(--muted); text-align:center; }
+  h1 { margin:4px 0 0; font-size:34px; letter-spacing:1px; color:#fff; text-align:center; overflow-wrap:anywhere; }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:10px; }
+  .step { display:flex; align-items:center; gap:10px; font-weight:600; font-size:16px; }
+  .step .dots { font-size:20px; color:var(--accent); }
+  label { font-size:13px; color:var(--muted); }
+  input, textarea { width:100%; background:var(--field); border:1px solid var(--field-line); border-radius:12px; color:var(--ink); font:inherit; font-size:16px; }
+  input { height:46px; padding:0 14px; }
+  textarea { min-height:88px; padding:12px 14px; resize:vertical; }
+  input:focus, textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(185,166,255,.18); }
+  ::placeholder { color:#5f5f68; }
+
+  .big { display:flex; align-items:baseline; justify-content:center; gap:8px; padding:6px 0; }
+  #big { font-size:64px; line-height:1; color:#fff; text-shadow:0 0 18px rgba(185,166,255,.45); }
+  .big span { font-size:18px; color:var(--muted); }
+  .quick { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
+  .quick button { height:46px; border-radius:12px; border:1px solid var(--field-line); background:var(--field); color:var(--ink); font-size:18px; cursor:pointer; }
+  .quick button.on { border-color:var(--accent); background:var(--accent-deep); color:#fff; }
+  .qrbox { align-self:center; background:#fff; border-radius:16px; padding:12px; box-shadow:0 0 0 1px var(--accent-line), 0 0 30px rgba(185,166,255,.25); }
+  #qr svg { display:block; width:210px; height:210px; }
+  .hint { text-align:center; font-size:13px; color:var(--muted); }
+
+  .drop { display:flex; flex-direction:column; align-items:center; gap:8px; border:1.5px dashed var(--accent-line); border-radius:14px; padding:24px 16px; color:var(--muted); font-size:14px; text-align:center; cursor:pointer; }
+  .drop img { max-width:100%; max-height:240px; border-radius:10px; }
+
+  #send { height:56px; border:0; border-radius:16px; background:var(--accent); color:#120f1c; font:600 18px "Bai Jamjuree", sans-serif; cursor:pointer; box-shadow:0 0 24px rgba(185,166,255,.35); }
+  #send:disabled { background:#2a2733; color:#7d7a88; box-shadow:none; cursor:default; }
+  #msg { min-height:1.4em; text-align:center; font-size:14px; }
   .ok { color:var(--ok); } .bad { color:var(--bad); }
+  .foot { text-align:center; font-size:12px; color:var(--dim); }
+  button:focus-visible, .drop:focus-within { outline:2px solid var(--accent); outline-offset:2px; }
 </style>
 </head>
 <body>
 <main>
-  <h1>โดเนทให้ <span id="ch"></span></h1>
-
-  <div class="card">
-    <div class="step">1. ชื่อและข้อความ</div>
-    <label for="name">ชื่อของคุณ</label>
-    <input id="name" maxlength="40">
-    <label for="text">ข้อความ</label>
-    <textarea id="text" maxlength="255"></textarea>
+  <div class="top">
+    <div class="dots brand">ACE·DONO</div>
+    <div class="dots air"><i></i>ON AIR</div>
   </div>
 
-  <div class="card">
-    <div class="step">2. ใส่ยอดแล้วสแกนโอนผ่านพร้อมเพย์</div>
-    <label for="amount">จำนวนเงิน (บาท)</label>
-    <input id="amount" type="number" inputmode="decimal" step="1">
+  <div class="hero">
+    <div id="face" aria-hidden="true"></div>
+    <div>
+      <p>ส่งข้อความให้ ACE อ่านบนสตรีม</p>
+      <h1 class="dots" id="ch"></h1>
+    </div>
+  </div>
+
+  <section class="card">
+    <div class="step"><span class="dots">01</span>ชื่อและข้อความ</div>
+    <label for="name">ชื่อที่ให้ ACE อ่าน</label>
+    <input id="name" maxlength="40" placeholder="เช่น KluayTod_99" autocomplete="nickname">
+    <label for="text">ข้อความ (ไม่เกิน 255 ตัว)</label>
+    <textarea id="text" maxlength="255" placeholder="ACE วันนี้กินข้าวหรือยัง"></textarea>
+  </section>
+
+  <section class="card">
+    <div class="step"><span class="dots">02</span>เลือกยอดแล้วสแกนพร้อมเพย์</div>
+    <div class="big"><div class="dots" id="big">0</div><span>บาท</span></div>
     <div class="quick" id="quick"></div>
-    <div id="qr"></div>
-    <div class="center">สแกนด้วยแอปธนาคาร ยอดเงินจะขึ้นให้อัตโนมัติ</div>
-  </div>
+    <label for="amount" id="amountLabel">หรือใส่ยอดเอง</label>
+    <input id="amount" type="number" inputmode="decimal" step="1">
+    <div class="qrbox"><div id="qr"></div></div>
+    <div class="hint">สแกนด้วยแอปธนาคาร ยอดขึ้นให้เอง ไม่ต้องพิมพ์</div>
+  </section>
 
-  <div class="card">
-    <div class="step">3. แนบสลิป</div>
+  <section class="card">
+    <div class="step"><span class="dots">03</span>แนบสลิป</div>
     <label class="drop" id="drop">
       <input id="file" type="file" accept="image/*" hidden>
-      <span id="dropText">แตะเพื่อเลือกรูปสลิป (ต้องมี QR Code บนสลิป)</span>
+      <span id="dropText"></span>
     </label>
-  </div>
+  </section>
 
-  <button id="send" disabled>ส่งโดเนท</button>
-  <div id="msg"></div>
+  <button id="send" disabled>ส่งโดเนทให้ ACE</button>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div class="foot">ชื่อ ยอด และข้อความจะขึ้นบนสตรีม · รูปสลิปเห็นเฉพาะเจ้าของช่อง</div>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
@@ -75,20 +118,33 @@ const $ = id => document.getElementById(id);
 const sb = supabase.createClient(C.supabaseUrl, C.supabaseAnonKey);
 let slip = null; // { file, bank, transRef }
 
+// หน้า ACE แบบจุด (ตกแต่ง)
+const FACE = ["...............", "..XXX.....XXX..", ".X...X...X...X.", "...............", ".....X...X.....", "......XXX......", "..............."];
+for (const ch of FACE.join("")) { const d = document.createElement("b"); if (ch === "X") d.className = "on"; $("face").appendChild(d); }
+
+const DROP_HINT = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b9a6ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><br>แตะเพื่อเลือกรูปสลิป · ต้องมี QR บนสลิป`;
+function resetDrop() { $("dropText").innerHTML = DROP_HINT; }
+resetDrop();
+
 $("ch").textContent = C.channelName;
 $("amount").min = C.minAmount;
 $("amount").value = C.quickAmounts[0];
+$("amountLabel").textContent = `หรือใส่ยอดเอง (ขั้นต่ำ ${C.minAmount} บาท)`;
 try { $("name").value = localStorage.getItem("donate-name") || ""; } catch {}
 for (const a of C.quickAmounts) {
   const b = document.createElement("button");
-  b.textContent = a; b.onclick = () => { $("amount").value = a; drawQr(); };
+  b.className = "dots"; b.type = "button"; b.textContent = a; b.dataset.amount = a;
+  b.onclick = () => { $("amount").value = a; drawQr(); };
   $("quick").appendChild(b);
 }
 
 function drawQr() {
   const amt = Number($("amount").value);
+  const ok = amt >= C.minAmount;
+  $("big").textContent = ok ? amt.toLocaleString("th-TH", { maximumFractionDigits: 2 }) : "–";
+  for (const b of $("quick").children) b.classList.toggle("on", Number(b.dataset.amount) === amt);
   const q = qrcode(0, "M");
-  q.addData(promptpayPayload(C.promptpay, amt >= C.minAmount ? amt : 0));
+  q.addData(promptpayPayload(C.promptpay, ok ? amt : 0));
   q.make();
   $("qr").innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
 }
@@ -119,6 +175,7 @@ $("file").onchange = async () => {
   $("dropText").innerHTML = "";
   const im = document.createElement("img");
   im.src = URL.createObjectURL(file);
+  im.alt = "รูปสลิปที่เลือก";
   $("dropText").appendChild(im);
   say("กำลังตรวจสลิป…");
   const info = parseSlipQr(await readQr(file).catch(() => null));
@@ -147,9 +204,9 @@ $("send").onclick = async () => {
     return say(error.code === "23505" ? "สลิปนี้ถูกใช้ไปแล้ว" : "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง", "bad");
   }
   await sb.storage.from("slips").upload(path, slip.file, { upsert: false }).catch(() => {});
-  say("ขอบคุณสำหรับโดเนท! 💖", "ok");
+  say("ส่งแล้ว! รอฟัง ACE อ่านบนสตรีมได้เลย 💜", "ok");
   slip = null; $("file").value = "";
-  $("dropText").textContent = "แตะเพื่อเลือกรูปสลิป (ต้องมี QR Code บนสลิป)";
+  resetDrop();
   $("text").value = "";
 };
 </script>
