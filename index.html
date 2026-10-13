@@ -58,6 +58,7 @@
   #msg { min-height:1.4em; text-align:center; font-size:14px; }
   .ok { color:var(--ok); } .bad { color:var(--bad); }
   .foot { text-align:center; font-size:12px; color:var(--dim); }
+  .hint.bad { color:var(--bad); }
   button:focus-visible, .drop:focus-within { outline:2px solid var(--accent); outline-offset:2px; }
 </style>
 </head>
@@ -92,6 +93,15 @@
     <input id="amount" type="number" inputmode="decimal" step="1">
     <div class="qrbox"><div id="qr"></div></div>
     <div class="hint">สแกนด้วยแอปธนาคาร ยอดขึ้นให้เอง ไม่ต้องพิมพ์</div>
+  </section>
+
+  <section class="card" id="clipCard" hidden>
+    <div class="step"><span class="dots">+</span>ส่งคลิป YouTube หรือ TikTok ให้ ACE เปิด (ไม่บังคับ)</div>
+    <label for="video">ลิงก์ YouTube หรือ TikTok</label>
+    <input id="video" inputmode="url" placeholder="https://youtu.be/... หรือ https://vt.tiktok.com/..." autocomplete="off">
+    <label for="vstart">เริ่มที่ (ไม่ใส่ = YouTube: ช่วงที่คนดูซ้ำมากที่สุด · TikTok: ต้นคลิป)</label>
+    <input id="vstart" placeholder="เช่น 1:15" autocomplete="off">
+    <div class="hint" id="clipHint"></div>
   </section>
 
   <section class="card">
@@ -138,7 +148,57 @@ for (const a of C.quickAmounts) {
   $("quick").appendChild(b);
 }
 
+// ลิงก์ YouTube / TikTok -> { url, start } (ต้องตรงกับ aceace/donations/video.py และ setup-video.sql)
+function seconds(text) {
+  text = String(text || "").trim().toLowerCase();
+  if (!text) return null;
+  let m;
+  if (/^\d{1,5}$/.test(text)) return Number(text);
+  if ((m = text.match(/^(?:(\d{1,2})h)?(?:(\d{1,3})m)?(?:(\d{1,5})s)?$/)) && /[hms]/.test(text)) return (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0);
+  if (/^\d{1,2}(:\d{1,2}){1,2}$/.test(text)) return text.split(":").reduce((a, p) => a * 60 + Number(p), 0);
+  return NaN;
+}
+function parseYoutube(link) {
+  let url;
+  try { url = new URL(/^https?:\/\//i.test(link) ? link : "https://" + link); } catch { return null; }
+  const host = url.hostname.toLowerCase(), path = url.pathname.split("/").filter(Boolean);
+  if (!["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be", "www.youtu.be"].includes(host)) return null;
+  const id = host.endsWith("youtu.be") ? path[0] : ["shorts", "embed", "live", "v"].includes(path[0]) ? path[1] : url.searchParams.get("v");
+  if (!/^[A-Za-z0-9_-]{11}$/.test(id || "")) return null;
+  const t = seconds(url.searchParams.get("t") || url.searchParams.get("start") || (url.hash.startsWith("#t=") ? url.hash.slice(3) : ""));
+  return { id, start: Number.isFinite(t) ? t : null };
+}
+function parseTiktok(link) {
+  let url;
+  try { url = new URL(/^https?:\/\//i.test(link) ? link : "https://" + link); } catch { return null; }
+  const host = url.hostname.toLowerCase(), path = url.pathname.split("/").filter(Boolean);
+  if (!["tiktok.com", "www.tiktok.com", "m.tiktok.com", "vm.tiktok.com", "vt.tiktok.com"].includes(host)) return null;
+  const t = seconds(url.searchParams.get("t") || "");
+  const start = Number.isFinite(t) ? t : null;
+  // short links (vm./vt.tiktok.com/xxxx, tiktok.com/t/xxxx): ACEACE opens them to find the video
+  if (host === "vm.tiktok.com" || host === "vt.tiktok.com")
+    return path.length === 1 && /^[A-Za-z0-9]{5,20}$/.test(path[0]) ? { url: `https://${host}/${path[0]}/`, start } : null;
+  if (path[0] === "t") return path.length === 2 && /^[A-Za-z0-9]{5,20}$/.test(path[1]) ? { url: `https://www.tiktok.com/t/${path[1]}/`, start } : null;
+  let id = "";
+  if (path.length >= 3 && path[0].startsWith("@") && path[1] === "video") id = path[2];
+  else if (path.length >= 3 && ((path[0] === "embed" && path[1] === "v2") || (path[0] === "player" && path[1] === "v1"))) id = path[2];
+  else if (path.length >= 2 && (path[0] === "embed" || path[0] === "v")) id = path[1].replace(/\.html$/, "");
+  return /^[0-9]{8,25}$/.test(id) ? { url: "https://www.tiktok.com/embed/v2/" + id, start } : null;
+}
+function parseClip(link) {
+  const yt = parseYoutube(link);
+  return yt ? { url: "https://youtu.be/" + yt.id, start: yt.start } : parseTiktok(link);
+}
+function clipShown() {
+  const on = Number($("amount").value) >= C.videoMinAmount;
+  $("clipCard").hidden = !on;
+  $("clipHint").className = "hint";
+  $("clipHint").textContent = `ยอด ${C.videoMinAmount} บาทขึ้นไป · เล่นในจอ ACE ${C.videoSeconds} วินาที · เจ้าของช่องกดตัดได้ถ้าไม่เหมาะ`;
+  return on;
+}
+
 function drawQr() {
+  clipShown();
   const amt = Number($("amount").value);
   const ok = amt >= C.minAmount;
   $("big").textContent = ok ? amt.toLocaleString("th-TH", { maximumFractionDigits: 2 }) : "–";
@@ -190,6 +250,15 @@ $("send").onclick = async () => {
   const amount = Number($("amount").value);
   if (!(amount >= C.minAmount)) return say(`โดเนทขั้นต่ำ ${C.minAmount} บาท`, "bad");
   if (!slip) return;
+  let clip = null;
+  if (clipShown() && $("video").value.trim()) {
+    const found = parseClip($("video").value.trim());
+    if (!found) { $("clipHint").className = "hint bad"; $("clipHint").textContent = "ใช้ลิงก์คลิป YouTube หรือ TikTok เท่านั้น"; return say("ลิงก์คลิปไม่ถูกต้อง", "bad"); }
+    const typed = seconds($("vstart").value);
+    if (Number.isNaN(typed) || (typed !== null && typed > 21600)) return say("เวลาเริ่มคลิปไม่ถูกต้อง ใช้แบบ 1:15", "bad");
+    const start = typed !== null ? typed : found.start;
+    clip = { video_url: found.url, video_start: start === null ? null : start };
+  }
   $("send").disabled = true;
   say("กำลังส่ง…");
   try { localStorage.setItem("donate-name", $("name").value.trim()); } catch {}
@@ -197,7 +266,7 @@ $("send").onclick = async () => {
   const path = `${new Date().toISOString().slice(0, 10)}/${slip.transRef}.${ext}`;
   const { error } = await sb.from("slips").insert({
     trans_ref: slip.transRef, bank: slip.bank, name, amount,
-    message: $("text").value.trim(), slip_path: path,
+    message: $("text").value.trim(), slip_path: path, ...(clip || {}),
   });
   if (error) {
     $("send").disabled = false;
@@ -207,7 +276,7 @@ $("send").onclick = async () => {
   say("ส่งแล้ว! รอฟัง ACE อ่านบนสตรีมได้เลย 💜", "ok");
   slip = null; $("file").value = "";
   resetDrop();
-  $("text").value = "";
+  $("text").value = ""; $("video").value = ""; $("vstart").value = "";
 };
 </script>
 </body>
