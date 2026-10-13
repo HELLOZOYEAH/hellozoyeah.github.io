@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ACE · คลิป</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+</style>
+</head>
+<body>
+<!-- ACEACE plays a donor's YouTube clip on ACE's TV through this page: YouTube refuses embeds on a page served
+     from 127.0.0.1 (error 153), but accepts this https site. Usage: player.html#v=<id>&start=<s>&end=<s>[&mute=1] -->
+<script>
+(function () {
+  var q = new URLSearchParams(location.hash.slice(1));
+  var id = q.get('v') || '';
+  if (!/^[A-Za-z0-9_-]{11}$/.test(id)) return;
+  var whole = function (v) { v = parseInt(v, 10); return isFinite(v) && v >= 0 && v <= 21600 ? v : 0; };
+  var start = whole(q.get('start')), end = whole(q.get('end'));
+  var src = 'https://www.youtube.com/embed/' + id + '?autoplay=1&controls=0&disablekb=1&fs=0&rel=0&playsinline=1&iv_load_policy=3'
+    + '&start=' + start + (end > start ? '&end=' + end : '') + (q.get('mute') === '1' ? '&mute=1' : '');
+  var frame = document.createElement('iframe');
+  frame.title = 'คลิปจากคนโดเนต';
+  frame.allow = 'autoplay; encrypted-media';
+  frame.referrerPolicy = 'strict-origin-when-cross-origin';
+  frame.src = src;
+  document.body.appendChild(frame);
+})();
+</script>
+</body>
+</html>
