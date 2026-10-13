@@ -25,7 +25,7 @@
   var whole = function (v) { v = parseInt(v, 10); return isFinite(v) && v >= 0 && v <= 21600 ? v : 0; };
   var start = whole(q.get('start')), end = whole(q.get('end')), mute = q.get('mute') === '1';
   var told = {};
-  var tell = function (what) {  // 'started' | 'ended', once each
+  var tell = function (what) {  // 'started' | 'ended' | 'failed', once each
     if (told[what] || window.parent === window) return;
     told[what] = true;
     window.parent.postMessage({ aceClip: what }, '*');
@@ -56,7 +56,12 @@
       else if (type === 'onStateChange' && value === 1) { unmute(); tell('started'); }
       else if (type === 'onMute' && value === true) unmute();
       else if (type === 'onStateChange' && value === 0) tell('ended');
-      else if (type === 'onPlayerError') tell('ended');  // deleted, private or not embeddable: ACE's TV moves on
+      else if (type === 'onPlayerError') {
+        var code = value && value.errorCode;
+        // 3002: the browser blocked playing with sound; play on muted rather than lose the clip
+        if (code === 3002) { asked = 99; send('mute'); send('play'); }
+        else tell('failed');  // deleted, private, not embeddable, or a browser that cannot play it
+      }
       else if (type === 'onCurrentTime' && value && end > start && value.currentTime >= end) { send('pause'); tell('ended'); }
     });
     return;
@@ -74,7 +79,7 @@
           if (e.data === YT.PlayerState.PLAYING && player.getCurrentTime() >= start - 1) tell('started');
           if (e.data === YT.PlayerState.ENDED) tell('ended');
         },
-        onError: function () { tell('ended'); }
+        onError: function () { tell('failed'); }
       }
     });
     var frame = player.getIframe && player.getIframe();
