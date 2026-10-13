@@ -7,13 +7,15 @@
 <title>ACE · คลิป</title>
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+  iframe, #clip { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
 </style>
 </head>
 <body>
 <!-- ACEACE plays a donor's YouTube or TikTok clip on ACE's TV through this page: YouTube refuses embeds on a page
-     served from 127.0.0.1 (error 153), but accepts this https site.
-     Usage: player.html#v=<id>&start=<s>&end=<s>[&mute=1]   ·   TikTok: player.html#site=tiktok&v=<id>&start=<s>[&mute=1] -->
+     served from 127.0.0.1 (error 153), but accepts this https site. The page tells ACE's TV (window.parent) when the
+     clip itself starts and ends, after any YouTube ad, so the donor's seconds are counted from the real start.
+     Usage: player.html#v=<id>&start=<s>&end=<s>[&mute=1]   ·   TikTok: player.html#site=tiktok&v=<id>&start=<s>&end=<s>[&mute=1] -->
+<div id="clip"></div>
 <script>
 (function () {
   var q = new URLSearchParams(location.hash.slice(1));
@@ -22,30 +24,64 @@
   if (!(tiktok ? /^[0-9]{8,25}$/ : /^[A-Za-z0-9_-]{11}$/).test(id)) return;
   var whole = function (v) { v = parseInt(v, 10); return isFinite(v) && v >= 0 && v <= 21600 ? v : 0; };
   var start = whole(q.get('start')), end = whole(q.get('end')), mute = q.get('mute') === '1';
-  var src = tiktok
-    ? 'https://www.tiktok.com/player/v1/' + id + '?autoplay=1&controls=0&progress_bar=0&play_button=0&volume_control=0'
-      + '&fullscreen_button=0&timestamp=0&loop=0&music_info=0&description=0&rel=0&native_context_menu=0&closed_caption=0'
-      + (mute ? '&muted=1' : '')
-    : 'https://www.youtube.com/embed/' + id + '?autoplay=1&controls=0&disablekb=1&fs=0&rel=0&playsinline=1&iv_load_policy=3'
-      + '&start=' + start + (end > start ? '&end=' + end : '') + (mute ? '&mute=1' : '');
-  var frame = document.createElement('iframe');
-  frame.title = '\u0e04\u0e25\u0e34\u0e1b\u0e08\u0e32\u0e01\u0e04\u0e19\u0e42\u0e14\u0e40\u0e19\u0e15';
-  frame.allow = 'autoplay; encrypted-media; fullscreen';
-  frame.referrerPolicy = 'strict-origin-when-cross-origin';
-  frame.src = src;
-  document.body.appendChild(frame);
-  if (!tiktok) return;
-  // TikTok's player takes commands by postMessage once it says it is ready: jump to the start and play
-  var send = function (type, value) {
-    var message = { 'x-tiktok-player': true, type: type };
-    if (value !== undefined) message.value = value;
-    frame.contentWindow.postMessage(message, 'https://www.tiktok.com');
+  var told = {};
+  var tell = function (what) {  // 'started' | 'ended', once each
+    if (told[what] || window.parent === window) return;
+    told[what] = true;
+    window.parent.postMessage({ aceClip: what }, '*');
   };
-  window.addEventListener('message', function (event) {
-    if (event.origin !== 'https://www.tiktok.com' || !event.data || event.data.type !== 'onPlayerReady') return;
-    if (start) send('seekTo', start);
-    send('play');
-  });
+
+  if (tiktok) {
+    var frame = document.createElement('iframe');
+    frame.title = '\u0e04\u0e25\u0e34\u0e1b\u0e08\u0e32\u0e01\u0e04\u0e19\u0e42\u0e14\u0e40\u0e19\u0e15';
+    frame.allow = 'autoplay; encrypted-media; fullscreen';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.src = 'https://www.tiktok.com/player/v1/' + id + '?autoplay=1&controls=0&progress_bar=0&play_button=0&volume_control=0'
+      + '&fullscreen_button=0&timestamp=0&loop=0&music_info=0&description=0&rel=0&native_context_menu=0&closed_caption=0'
+      + (mute ? '&muted=1' : '');
+    document.getElementById('clip').replaceWith(frame);
+    var send = function (type, value) {
+      var message = { 'x-tiktok-player': true, type: type };
+      if (value !== undefined) message.value = value;
+      frame.contentWindow.postMessage(message, 'https://www.tiktok.com');
+    };
+    var asked = 0;
+    var unmute = function () { if (!mute && asked++ < 4) send('unMute'); };  // a few tries, never a loop
+    // TikTok's player takes commands by postMessage once ready, and reports its state and time the same way
+    window.addEventListener('message', function (event) {
+      if (event.origin !== 'https://www.tiktok.com' || !event.data) return;
+      var type = event.data.type, value = event.data.value;
+      // autoplay starts muted in embedded players; ACE's TV wants the sound (Preview passes mute=1 for real donations)
+      if (type === 'onPlayerReady') { if (start) send('seekTo', start); send('play'); unmute(); }
+      else if (type === 'onStateChange' && value === 1) { unmute(); tell('started'); }
+      else if (type === 'onMute' && value === true) unmute();
+      else if (type === 'onStateChange' && value === 0) tell('ended');
+      else if (type === 'onCurrentTime' && value && end > start && value.currentTime >= end) { send('pause'); tell('ended'); }
+    });
+    return;
+  }
+
+  // YouTube through its IFrame API: PLAYING at the clip's own time is the clip itself (an ad runs at its own time)
+  window.onYouTubeIframeAPIReady = function () {
+    var player = new YT.Player('clip', {
+      videoId: id, width: '100%', height: '100%',
+      playerVars: { autoplay: 1, controls: 0, disablekb: 1, fs: 0, rel: 0, playsinline: 1, iv_load_policy: 3,
+                    start: start, end: end > start ? end : undefined, mute: mute ? 1 : 0, origin: location.origin },
+      events: {
+        onReady: function (e) { if (mute) e.target.mute(); e.target.playVideo(); },
+        onStateChange: function (e) {
+          if (e.data === YT.PlayerState.PLAYING && player.getCurrentTime() >= start - 1) tell('started');
+          if (e.data === YT.PlayerState.ENDED) tell('ended');
+        },
+        onError: function () { tell('ended'); }
+      }
+    });
+    var frame = player.getIframe && player.getIframe();
+    if (frame) { frame.allow = 'autoplay; encrypted-media'; frame.referrerPolicy = 'strict-origin-when-cross-origin'; }
+  };
+  var api = document.createElement('script');
+  api.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(api);
 })();
 </script>
 </body>
