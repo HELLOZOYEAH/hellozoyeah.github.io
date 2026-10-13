@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Donate Alert</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* สำหรับ OBS Browser Source แนะนำขนาด 800x300 */
+  html, body { margin:0; background:transparent; font-family:Kanit, sans-serif; overflow:hidden; }
+  #box { position:absolute; left:50%; top:20px; transform:translate(-50%, -30px); opacity:0;
+         transition:opacity .4s, transform .4s; min-width:420px; max-width:760px; text-align:center;
+         background:rgba(255,255,255,.95); border:3px solid #e85d9a; border-radius:20px; padding:18px 26px;
+         box-shadow:0 8px 30px rgba(0,0,0,.25); }
+  #box.show { opacity:1; transform:translate(-50%, 0); }
+  #who { font-size:30px; font-weight:600; color:#3a2b33; }
+  #who b { color:#e85d9a; }
+  #say { font-size:22px; color:#5a4650; margin-top:6px; word-wrap:break-word; }
+</style>
+</head>
+<body>
+<div id="box"><div id="who"></div><div id="say"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+const C = window.DONATE_CONFIG;
+const sb = supabase.createClient(C.supabaseUrl, C.supabaseAnonKey);
+const queue = [];
+let busy = false;
+
+function chime() {
+  try {
+    const a = new AudioContext();
+    [660, 880, 1320].forEach((f, i) => {
+      const o = a.createOscillator(), g = a.createGain();
+      o.frequency.value = f; o.connect(g); g.connect(a.destination);
+      const t = a.currentTime + i * 0.15;
+      g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      o.start(t); o.stop(t + 0.4);
+    });
+  } catch {}
+}
+
+function next() {
+  if (busy || !queue.length) return;
+  busy = true;
+  const d = queue.shift();
+  const who = document.getElementById("who");
+  who.textContent = d.name + " โดเนท ";
+  const b = document.createElement("b");
+  b.textContent = Number(d.amount).toLocaleString("th-TH") + " บาท";
+  who.appendChild(b);
+  document.getElementById("say").textContent = d.message || "";
+  document.getElementById("box").classList.add("show");
+  chime();
+  setTimeout(() => {
+    document.getElementById("box").classList.remove("show");
+    setTimeout(() => { busy = false; next(); }, 600);
+  }, C.alertSeconds * 1000);
+}
+
+sb.channel("alerts")
+  .on("postgres_changes", { event: "INSERT", schema: "public", table: "alerts" }, p => { queue.push(p.new); next(); })
+  .subscribe();
+
+// ทดสอบ: เปิด alert.html?test
+if (location.search.includes("test")) { queue.push({ name: "ทดสอบ", amount: 100, message: "สวัสดีจ้า" }); next(); }
+</script>
+</body>
+</html>
