@@ -11,23 +11,41 @@
 </style>
 </head>
 <body>
-<!-- ACEACE plays a donor's YouTube clip on ACE's TV through this page: YouTube refuses embeds on a page served
-     from 127.0.0.1 (error 153), but accepts this https site. Usage: player.html#v=<id>&start=<s>&end=<s>[&mute=1] -->
+<!-- ACEACE plays a donor's YouTube or TikTok clip on ACE's TV through this page: YouTube refuses embeds on a page
+     served from 127.0.0.1 (error 153), but accepts this https site.
+     Usage: player.html#v=<id>&start=<s>&end=<s>[&mute=1]   ·   TikTok: player.html#site=tiktok&v=<id>&start=<s>[&mute=1] -->
 <script>
 (function () {
   var q = new URLSearchParams(location.hash.slice(1));
+  var tiktok = q.get('site') === 'tiktok';
   var id = q.get('v') || '';
-  if (!/^[A-Za-z0-9_-]{11}$/.test(id)) return;
+  if (!(tiktok ? /^[0-9]{8,25}$/ : /^[A-Za-z0-9_-]{11}$/).test(id)) return;
   var whole = function (v) { v = parseInt(v, 10); return isFinite(v) && v >= 0 && v <= 21600 ? v : 0; };
-  var start = whole(q.get('start')), end = whole(q.get('end'));
-  var src = 'https://www.youtube.com/embed/' + id + '?autoplay=1&controls=0&disablekb=1&fs=0&rel=0&playsinline=1&iv_load_policy=3'
-    + '&start=' + start + (end > start ? '&end=' + end : '') + (q.get('mute') === '1' ? '&mute=1' : '');
+  var start = whole(q.get('start')), end = whole(q.get('end')), mute = q.get('mute') === '1';
+  var src = tiktok
+    ? 'https://www.tiktok.com/player/v1/' + id + '?autoplay=1&controls=0&progress_bar=0&play_button=0&volume_control=0'
+      + '&fullscreen_button=0&timestamp=0&loop=0&music_info=0&description=0&rel=0&native_context_menu=0&closed_caption=0'
+      + (mute ? '&muted=1' : '')
+    : 'https://www.youtube.com/embed/' + id + '?autoplay=1&controls=0&disablekb=1&fs=0&rel=0&playsinline=1&iv_load_policy=3'
+      + '&start=' + start + (end > start ? '&end=' + end : '') + (mute ? '&mute=1' : '');
   var frame = document.createElement('iframe');
-  frame.title = 'คลิปจากคนโดเนต';
-  frame.allow = 'autoplay; encrypted-media';
+  frame.title = '\u0e04\u0e25\u0e34\u0e1b\u0e08\u0e32\u0e01\u0e04\u0e19\u0e42\u0e14\u0e40\u0e19\u0e15';
+  frame.allow = 'autoplay; encrypted-media; fullscreen';
   frame.referrerPolicy = 'strict-origin-when-cross-origin';
   frame.src = src;
   document.body.appendChild(frame);
+  if (!tiktok) return;
+  // TikTok's player takes commands by postMessage once it says it is ready: jump to the start and play
+  var send = function (type, value) {
+    var message = { 'x-tiktok-player': true, type: type };
+    if (value !== undefined) message.value = value;
+    frame.contentWindow.postMessage(message, 'https://www.tiktok.com');
+  };
+  window.addEventListener('message', function (event) {
+    if (event.origin !== 'https://www.tiktok.com' || !event.data || event.data.type !== 'onPlayerReady') return;
+    if (start) send('seekTo', start);
+    send('play');
+  });
 })();
 </script>
 </body>
