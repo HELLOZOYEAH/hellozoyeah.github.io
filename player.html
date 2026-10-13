@@ -45,14 +45,15 @@
       if (value !== undefined) message.value = value;
       frame.contentWindow.postMessage(message, 'https://www.tiktok.com');
     };
-    var asked = 0;
+    var asked = 0, placed = false;
     var unmute = function () { if (!mute && asked++ < 4) send('unMute'); };  // a few tries, never a loop
     // TikTok's player takes commands by postMessage once ready, and reports its state and time the same way
     window.addEventListener('message', function (event) {
       if (event.origin !== 'https://www.tiktok.com' || !event.data) return;
       var type = event.data.type, value = event.data.value;
       // autoplay starts muted in embedded players; ACE's TV wants the sound (Preview passes mute=1 for real donations)
-      if (type === 'onPlayerReady') { if (start) send('seekTo', start); send('play'); unmute(); }
+      // TikTok's player remembers where it was left last time (same video): always jump to the clip's start
+      if (type === 'onPlayerReady') { send('seekTo', start); send('play'); unmute(); }
       else if (type === 'onStateChange' && value === 1) { unmute(); tell('started'); }
       else if (type === 'onMute' && value === true) unmute();
       else if (type === 'onStateChange' && value === 0) tell('ended');
@@ -62,7 +63,11 @@
         if (code === 3002) { asked = 99; send('mute'); send('play'); }
         else tell('failed');  // deleted, private, not embeddable, or a browser that cannot play it
       }
-      else if (type === 'onCurrentTime' && value && end > start && value.currentTime >= end) { send('pause'); tell('ended'); }
+      else if (type === 'onCurrentTime' && value) {
+        var now = value.currentTime;
+        if (!placed) { placed = true; if (Math.abs(now - start) > 1.5) { send('seekTo', start); return; } }  // resumed elsewhere
+        if (end > start && now >= end) { send('pause'); tell('ended'); }
+      }
     });
     return;
   }
