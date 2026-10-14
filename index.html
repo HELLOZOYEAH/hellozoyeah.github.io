@@ -60,6 +60,16 @@
   .ok { color:var(--ok); } .bad { color:var(--bad); }
   .foot { text-align:center; font-size:12px; color:var(--dim); }
   .hint.bad { color:var(--bad); }
+  .tw { display:flex; align-items:center; gap:8px; background:var(--field); border:1px solid var(--field-line); border-radius:12px; padding-left:12px; }
+  .tw:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px rgba(185,166,255,.18); }
+  .tw svg { flex:none; } .tw b { color:var(--muted); font-weight:500; font-size:15px; }
+  .tw input { border:0; background:none; box-shadow:none !important; padding-left:0; }
+  .plat { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .plat button { height:38px; border-radius:10px; border:1px solid var(--field-line); background:var(--field); color:var(--muted); font:500 14px "Bai Jamjuree", sans-serif; cursor:pointer; }
+  .plat button.on { border-color:var(--accent); background:var(--accent-deep); color:#fff; }
+  .opt { font-size:11px; border:1px solid var(--field-line); border-radius:999px; padding:0 8px; margin-left:4px; }
+  .check { display:flex; align-items:center; gap:10px; font-size:14px; color:var(--ink); cursor:pointer; }
+  .check input { width:20px; height:20px; accent-color:var(--accent); margin:0; }
   button:focus-visible, .drop:focus-within { outline:2px solid var(--accent); outline-offset:2px; }
 </style>
 </head>
@@ -80,8 +90,18 @@
 
   <section class="card">
     <div class="step"><span class="dots">01</span>ชื่อและข้อความ</div>
-    <label for="name">ชื่อที่ให้ ACE อ่าน</label>
-    <input id="name" maxlength="40" placeholder="เช่น KluayTod_99" autocomplete="nickname">
+    <label class="check"><input type="checkbox" id="anon">ไม่ระบุตัวตน (ACE อ่านว่า "ไม่ระบุชื่อ")</label>
+    <div id="whoRow" style="display:flex;flex-direction:column;gap:10px">
+    <label for="twitch">คุณดูสตรีมจาก <span class="opt">ไม่บังคับ</span></label>
+    <div class="plat" id="plat"><button type="button" data-p="twitch">Twitch</button><button type="button" data-p="tiktok">TikTok</button></div>
+    <div class="tw"><span id="platIcon"></span><b id="platHost">twitch.tv/</b><input id="twitch" maxlength="60" placeholder="ชื่อบัญชี" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+    <div class="hint" id="twitchHint">ใส่แล้ว ACE จำได้ว่าเป็นคุณ หัวใจของ ACE เข้าบัญชีนี้</div>
+    <label class="check" id="useRow" hidden><input type="checkbox" id="useTwitch" checked><span id="useText">ให้ ACE อ่านชื่อ Twitch นี้</span></label>
+    <div id="nameRow" style="display:flex;flex-direction:column;gap:10px">
+      <label for="name">ชื่อที่ให้ ACE อ่าน</label>
+      <input id="name" maxlength="40" placeholder="เช่น มิมิ" autocomplete="nickname">
+    </div>
+    </div>
     <label for="text">ข้อความ (ไม่เกิน 255 ตัว)</label>
     <textarea id="text" maxlength="255" placeholder="ACE วันนี้กินข้าวหรือยัง"></textarea>
   </section>
@@ -141,7 +161,44 @@ $("ch").textContent = C.channelName;
 $("amount").min = C.minAmount;
 $("amount").value = C.quickAmounts[0];
 $("amountLabel").textContent = `หรือใส่ยอดเอง (ขั้นต่ำ ${C.minAmount} บาท)`;
-try { $("name").value = localStorage.getItem("donate-name") || ""; } catch {}
+try {
+  $("name").value = localStorage.getItem("donate-name") || "";
+  $("twitch").value = localStorage.getItem("donate-twitch") || "";
+  $("useTwitch").checked = localStorage.getItem("donate-use-twitch") !== "0";
+} catch {}
+
+// ชื่อบน Twitch หรือ TikTok: พิมพ์ชื่อ หรือวางลิงก์โปรไฟล์ได้ (ต้องตรงกับ setup-twitch.sql และ aceace/donations/people.py)
+const PLATFORMS = {
+  twitch: { host: "twitch.tv/", url: /^(https?:\/\/)?(www\.|m\.)?twitch\.tv\//i, ok: /^[a-z0-9_]{3,25}$/, icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="#9146ff" aria-hidden="true"><path d="M4 2 2 6v14h5v3h3l3-3h4l5-5V2H4zm16 12-3 3h-5l-3 3v-3H5V4h15v10zm-4-7h-2v5h2V7zm-5 0H9v5h2V7z"/></svg>',
+            hint: "ใส่แล้ว ACE จำได้ว่าเป็นคุณ หัวใจของ ACE เข้าบัญชีนี้", bad: "ชื่อ Twitch ใช้ได้แค่ a-z 0-9 และ _ ยาว 3–25 ตัว", use: "ให้ ACE อ่านชื่อ Twitch นี้" },
+  tiktok: { host: "tiktok.com/@", url: /^(https?:\/\/)?(www\.|m\.)?tiktok\.com\/@?/i, ok: /^[a-z0-9_.]{2,24}$/,
+            icon: '<svg width="16" height="18" viewBox="0 0 24 24" fill="#ff4f8b" aria-hidden="true"><path d="M16.6 2h-3.4v13.4a3 3 0 1 1-3-3c.3 0 .6 0 .9.1V9a6.5 6.5 0 1 0 5.5 6.4V8.6a8 8 0 0 0 4.4 1.4V6.6c-2.4 0-4.4-2-4.4-4.6z"/></svg>',
+            hint: "ใส่แล้ว ACE จำได้ว่าคุณมาจาก TikTok", bad: "ชื่อ TikTok ใช้ได้แค่ a-z 0-9 _ และ . ยาว 2–24 ตัว", use: "ให้ ACE อ่านชื่อ TikTok นี้" },
+};
+let platform = "twitch";
+try { if (localStorage.getItem("donate-platform") === "tiktok") platform = "tiktok"; } catch {}
+function twitchTyped() {
+  const P = PLATFORMS[platform];
+  const raw = $("twitch").value.trim().replace(P.url, "").replace(/^@/, "").replace(/[/?#].*$/, "");
+  return { shown: raw, login: raw.toLowerCase(), ok: raw === "" || P.ok.test(raw.toLowerCase()), platform };
+}
+for (const b of $("plat").children) b.onclick = () => { platform = b.dataset.p; twitchShown(); $("twitch").focus(); };
+function twitchShown() {
+  $("whoRow").hidden = $("anon").checked;
+  if ($("anon").checked) return { shown: "", login: "", ok: true };  // ชื่อ Twitch ที่จำไว้ยังอยู่ แค่ไม่ส่ง
+  const t = twitchTyped(), P = PLATFORMS[platform];
+  for (const b of $("plat").children) b.classList.toggle("on", b.dataset.p === platform);
+  $("platIcon").innerHTML = P.icon; $("platHost").textContent = P.host; $("useText").textContent = P.use;
+  $("useRow").hidden = !t.login || !t.ok;
+  $("nameRow").hidden = !!t.login && t.ok && $("useTwitch").checked;
+  $("twitchHint").className = t.ok ? "hint" : "hint bad";
+  $("twitchHint").textContent = t.ok ? P.hint : P.bad;
+  return t;
+}
+$("twitch").oninput = twitchShown;
+$("useTwitch").onchange = twitchShown;
+$("anon").onchange = twitchShown;
+twitchShown();
 for (const a of C.quickAmounts) {
   const b = document.createElement("button");
   b.className = "dots"; b.type = "button"; b.textContent = a; b.dataset.amount = a;
@@ -247,7 +304,9 @@ $("file").onchange = async () => {
 };
 
 $("send").onclick = async () => {
-  const name = $("name").value.trim() || "ไม่ระบุชื่อ";
+  const tw = twitchShown();
+  if (!tw.ok) return say(platform === "tiktok" ? "ชื่อ TikTok ไม่ถูกต้อง" : "ชื่อ Twitch ไม่ถูกต้อง", "bad");
+  const name = $("anon").checked ? "ไม่ระบุชื่อ" : (tw.login && $("useTwitch").checked ? tw.shown : $("name").value.trim()) || "ไม่ระบุชื่อ";
   const amount = Number($("amount").value);
   if (!(amount >= C.minAmount)) return say(`โดเนทขั้นต่ำ ${C.minAmount} บาท`, "bad");
   if (!slip) return;
@@ -262,13 +321,21 @@ $("send").onclick = async () => {
   }
   $("send").disabled = true;
   say("กำลังส่ง…");
-  try { localStorage.setItem("donate-name", $("name").value.trim()); } catch {}
+  try {
+    localStorage.setItem("donate-name", $("name").value.trim());
+    if (!$("anon").checked) localStorage.setItem("donate-twitch", twitchTyped().shown);
+    localStorage.setItem("donate-platform", platform);
+    localStorage.setItem("donate-use-twitch", $("useTwitch").checked ? "1" : "0");
+  } catch {}
   const ext = (slip.file.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
   const path = `${new Date().toISOString().slice(0, 10)}/${slip.transRef}.${ext}`;
-  const { error } = await sb.from("slips").insert({
+  const row = {
     trans_ref: slip.transRef, bank: slip.bank, name, amount,
     message: $("text").value.trim(), slip_path: path, ...(clip || {}),
-  });
+  };
+  let { error } = await sb.from("slips").insert(tw.login ? { ...row, [tw.platform]: tw.login } : row);
+  // ยังไม่ได้รัน setup-twitch.sql: ส่งโดเนตไปก่อนโดยไม่มีชื่อ Twitch / TikTok
+  if (error && tw.login && error.code === "PGRST204") ({ error } = await sb.from("slips").insert(row));
   if (error) {
     $("send").disabled = false;
     return say(error.code === "23505" ? "สลิปนี้ถูกใช้ไปแล้ว" : "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง", "bad");
