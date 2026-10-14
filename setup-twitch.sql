@@ -36,3 +36,4 @@ begin
   values (new.name, new.amount, new.message, new.video_url, new.video_start, new.twitch, new.tiktok);
   return new;
 end $$;
+
