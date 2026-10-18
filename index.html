@@ -278,15 +278,6 @@
   .laneHead .bin { color:#ff9aa9; }
   .lane canvas { width:100%; height:72px; display:block; cursor:ew-resize; touch-action:none; }
   .withBg { font-size:12px; color:#cfc5ef; }
-  /* timing a voice recorded along its background: the music on top, the voice below on the same time line; the voice
-     row is dragged left or right until its peaks sit on the music's beats (2026-10-18) */
-  .sync { display:flex; flex-direction:column; gap:6px; width:100%; background:var(--field); border:1px solid var(--field-line); border-radius:12px; padding:10px 12px; }
-  .syncHead { display:flex; justify-content:space-between; font-size:13px; color:var(--muted); }
-  .syncHead b { font-weight:500; color:#8ff0b8; }
-  #syncView { width:100%; height:92px; display:block; cursor:ew-resize; touch-action:none; }
-  .syncFoot { display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--dim); text-align:center; }
-  .syncFoot span { flex:1; }
-  .syncFoot button { width:34px; height:30px; flex:none; border-radius:9px; border:1px solid var(--field-line); background:#16161a; color:var(--ink); cursor:pointer; font-size:12px; }
   /* paused: the whole take on the meter, a line to drag back to where to record again (what is after it goes) */
   .cutBar { display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; font-size:13px; color:#8ff0b8; }
   .cutBar.l2 { color:#c9b8ff; }
@@ -552,11 +543,6 @@
       <div class="player">
         <div class="row"><button type="button" id="voicePlay" aria-label="ฟังเสียงที่อัด">▶</button><canvas id="voiceShape" aria-label="กราฟเสียง แตะเพื่อข้ามไปตรงนั้น"></canvas></div>
         <div class="time"><span id="voiceNow">0:00</span><span id="voiceWith"></span><span id="voiceAll">0:00</span></div>
-      </div>
-      <div class="sync" id="syncRow" hidden>
-        <div class="syncHead"><span>ขยับเสียงให้ตรงจังหวะเพลง</span><b id="syncText">0.00 วิ</b></div>
-        <canvas id="syncView" aria-label="เพลงด้านบน เสียงพูดด้านล่าง ลากเสียงพูดซ้ายขวาให้ตรงจังหวะ"></canvas>
-        <div class="syncFoot"><button type="button" id="syncEarlier" aria-label="เลื่อนเสียงพูดไปทางซ้าย">◀</button><span>ลากแถวเสียงพูด (เขียว) ให้ยอดตรงกับเพลง (ม่วง) · กด ▶ ฟัง</span><button type="button" id="syncLater" aria-label="เลื่อนเสียงพูดไปทางขวา">▶</button></div>
       </div>
       <div class="pair editRow"><button type="button" id="voiceAgain">Edit</button><button type="button" class="bin" id="voiceDrop" aria-label="ลบเสียง"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/><path d="M10 11v5.5M14 11v5.5"/></svg></button></div>
       <dialog class="ask" id="dropAsk"><b id="dropTitle">ลบเสียงนี้ไหม?</b><span id="dropWords">ลบแล้วต้องอัดใหม่ตั้งแต่ต้น</span><div class="pair"><button type="button" id="dropNo">ยกเลิก</button><button type="button" class="danger" id="dropYes">ลบเลย</button></div></dialog>
@@ -1084,9 +1070,6 @@ function voiceChoices() {
   $("bgVol").value = bgLoud(); $("bgVolText").textContent = bgLoud() + "%";
   $("voiceHint").textContent = voiceHintText();
   $("voiceWith").textContent = voice && bgPick ? (voice.withBg === bgPick ? `อัดพร้อม ${bgName(bgPick)} · ตรงจังหวะ` : `+ ${bgName(bgPick)}`) : "";
-  const synced = !!(voice && voice.withBg && voice.withBg === bgPick);
-  $("syncRow").hidden = !synced;
-  if (synced) drawSync();
 }
 let bgVolume = null;  // the donor's own loudness for the background, null = the streamer's (page.bg_volume)
 const bgLoud = () => bgVolume ?? Math.round(page.bg_volume);
@@ -1203,58 +1186,6 @@ async function voiceMix() {
   z.set(x); for (let i = 0; i < y.length; i++) z[i] += y[i];
   return VoiceFx.render(both, "real", await bgBuffer(bgPick), settings, a);
 }
-// the timing view: peaks of the music (top) and of the voice (below, moved left by its delay), the same seconds across
-const SYNC_MAX = 1.5, SYNC_COLS = 120;
-let syncBg = null, syncTimer = 0;  // the background's buffer the view was drawn from
-function peaks(buffer, from, seconds, cols) {
-  const x = buffer.getChannelData(0), sr = buffer.sampleRate, out = new Array(cols).fill(0);
-  for (let i = 0; i < cols; i++) {
-    const a = Math.max(0, Math.round((from + seconds * i / cols) * sr)), b = Math.min(x.length, Math.round((from + seconds * (i + 1) / cols) * sr));
-    let m = 0; for (let k = a; k < b; k += 4) m = Math.max(m, Math.abs(x[k])); out[i] = m;
-  }
-  // the quietest stays low, the loudest at the top, so the beats stand out of the music's steady part
-  const sorted = [...out].sort((p, q) => p - q), low = sorted[Math.floor(cols * .15)], top = Math.max(sorted[cols - 1], low + 1e-4);
-  return out.map(v => Math.max(0, (v - low) / (top - low)));
-}
-async function drawSync(at = -1) {
-  if (!voice || !voiceDecoded || $("syncRow").hidden) return;
-  if (!syncBg || syncBg.id !== bgPick) { const buffer = await bgBuffer(bgPick); syncBg = buffer && { id: bgPick, buffer }; }
-  const heard = heardAll(voice.delay);
-  const { c, W, H, d } = fit($("syncView")), seconds = Math.max(1, heard.duration), half = H / 2;
-  c.clearRect(0, 0, W, H);
-  const lane = (values, color, mid, up) => {
-    const step = W / values.length, bw = Math.max(1.5 * d, step * .5);
-    values.forEach((v, i) => {
-      const h = Math.max(2 * d, v * (half - 8 * d));
-      c.fillStyle = color; c.beginPath();
-      c.roundRect ? c.roundRect(i * step + (step - bw) / 2, up ? mid - h : mid, bw, h, bw / 2) : c.rect(i * step + (step - bw) / 2, up ? mid - h : mid, bw, h);
-      c.fill();
-    });
-  };
-  if (syncBg) lane(peaks(syncBg.buffer, 0, seconds, SYNC_COLS), "#b9a6ff", half - 2 * d, true);
-  lane(peaks(heard, 0, seconds, SYNC_COLS), "#8ff0b8", half + 2 * d, false);
-  c.fillStyle = "rgba(255,255,255,.08)"; c.fillRect(0, half - .5 * d, W, d);
-  if (at >= 0) { c.fillStyle = "#fff"; c.fillRect(Math.min(W - d, at / seconds * W), 0, 1.5 * d, H); }
-  $("syncText").textContent = voice.delay.toFixed(2) + " วิ";
-}
-function nudge(delay, listen = true) {
-  if (!voice) return;
-  voice.delay = Math.round(Math.max(0, Math.min(SYNC_MAX, delay)) * 100) / 100;
-  if (play) stopPreview();
-  drawSync();
-  clearTimeout(syncTimer); if (listen) syncTimer = setTimeout(() => playPreview(), 350);
-}
-// dragging the view moves the voice under the music: to the left, the voice comes earlier (more of its start is cut)
-let syncDrag = null;
-$("syncView").onpointerdown = e => {
-  if (!voice || !voiceDecoded) return;
-  e.currentTarget.setPointerCapture(e.pointerId);
-  syncDrag = { x: e.clientX, delay: voice.delay, perPx: Math.max(1, heardVoice(voice.delay).duration) / e.currentTarget.getBoundingClientRect().width };
-};
-$("syncView").onpointermove = e => { if (syncDrag) nudge(syncDrag.delay + (syncDrag.x - e.clientX) * syncDrag.perPx, false); };
-$("syncView").onpointerup = $("syncView").onpointercancel = () => { if (syncDrag) { syncDrag = null; nudge(voice.delay); } };
-$("syncEarlier").onclick = () => nudge(voice.delay + 0.05);
-$("syncLater").onclick = () => nudge(voice.delay - 0.05);
 const COLS = 64;
 const LIVE = 72, LIVE_STEP = 1 / 12;  // while recording: 72 bars of 1/12 s, the last 6 seconds
 function envelope(buffer) {
@@ -1268,7 +1199,6 @@ async function voiceShape() {
   if (!voice) return null;
   const buffer = await voiceMix();
   shape = { values: envelope(buffer), seconds: buffer.duration };
-  if (!play) drawSync();
   $("voiceAll").textContent = clock(buffer.duration);
   if (!play) drawShape();
   return buffer;
@@ -1293,7 +1223,6 @@ async function playPreview(from = 0) {
       if (!play || play.source !== source) return;
       const t = a.currentTime - started;
       drawShape(Math.round(t / shape.seconds * COLS));
-      if (!$("syncRow").hidden && !syncDrag) drawSync(t);
       $("voiceNow").textContent = clock(Math.min(t, shape.seconds));
       requestAnimationFrame(walk);
     })();
