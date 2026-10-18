@@ -198,6 +198,11 @@
 
   .drop { display:flex; flex-direction:column; align-items:center; gap:8px; border:1.5px dashed var(--accent-line); border-radius:14px; padding:24px 16px; color:var(--muted); font-size:14px; text-align:center; cursor:pointer; }
   .drop img { max-width:100%; max-height:240px; border-radius:10px; }
+  /* a slip dragged over the box (from a folder, a chat, another tab): the box lights up and says let go */
+  .drop.over { border-style:solid; border-color:var(--accent); background:#1a1726; color:#e4dbff; box-shadow:0 0 22px rgba(185,166,255,.3) inset, 0 0 18px rgba(185,166,255,.25); }
+  .drop .letGo { display:none; font:600 16px "Bai Jamjuree", sans-serif; color:#e4dbff; }
+  .drop.over .letGo { display:block; }
+  .drop.over #dropText { display:none; }
 
   /* dark inside like the amount chips, only the edge and the words glow (option A, docs/mockups/donation-send-colors.html) */
   #send { height:56px; border:2px solid var(--accent); border-radius:16px; background:#15121f; color:#e4dbff; font:600 18px "Bai Jamjuree", sans-serif;
@@ -474,6 +479,7 @@
     <label class="drop" id="drop">
       <input id="file" type="file" accept="image/*" hidden>
       <span id="dropText"></span>
+      <span class="letGo">ปล่อยรูปสลิปตรงนี้เลย</span>
     </label>
   </section>
 
@@ -546,7 +552,7 @@ let slip = null; // { file, bank, transRef }
 // หน้า ACE แบบจุด (ตกแต่ง)
 const FACE = ["...............", "..XXX.....XXX..", ".X...X...X...X.", "...............", ".....X...X.....", "......XXX......", "..............."];
 
-const DROP_HINT = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b9a6ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><br>แตะเพื่อเลือกรูปสลิป · ต้องมี QR บนสลิป`;
+const DROP_HINT = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b9a6ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><br>แตะเพื่อเลือกรูปสลิป · หรือลากรูปมาวางตรงนี้ · ต้องมี QR บนสลิป`;
 function resetDrop() { $("dropText").innerHTML = DROP_HINT; }
 resetDrop();
 
@@ -1195,6 +1201,32 @@ async function readQr(file) {
   return null;
 }
 
+// a slip picture dropped on the box, or pasted (Ctrl+V) anywhere on the page, is taken as if picked (2026-10-18)
+function takeSlip(files) {
+  const picture = [...(files || [])].find(f => f.type.startsWith("image/"));
+  if (!picture) return say("ใช้ไฟล์รูปสลิปเท่านั้น (jpg, png)", "bad");
+  const box = new DataTransfer(); box.items.add(picture);
+  $("file").files = box.files;
+  $("file").onchange();
+  $("drop").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+const hasFiles = e => [...(e.dataTransfer?.types || [])].includes("Files");
+let dropDepth = 0;  // dragenter/leave fire for every child the picture passes over
+$("drop").addEventListener("dragenter", e => { if (!hasFiles(e)) return; e.preventDefault(); dropDepth++; $("drop").classList.add("over"); });
+$("drop").addEventListener("dragover", e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; });
+$("drop").addEventListener("dragleave", () => { if (--dropDepth <= 0) { dropDepth = 0; $("drop").classList.remove("over"); } });
+$("drop").addEventListener("drop", e => {
+  e.preventDefault(); dropDepth = 0; $("drop").classList.remove("over");
+  takeSlip(e.dataTransfer.files);
+});
+// a picture let go anywhere else must not open in the tab instead of the page
+addEventListener("dragover", e => { if (hasFiles(e)) e.preventDefault(); });
+addEventListener("drop", e => { if (hasFiles(e) && !$("drop").contains(e.target)) { e.preventDefault(); takeSlip(e.dataTransfer.files); } });
+addEventListener("paste", e => {
+  const files = [...(e.clipboardData?.files || [])];
+  if (!files.some(f => f.type.startsWith("image/"))) return;  // text pastes into the boxes as usual
+  e.preventDefault(); takeSlip(files);
+});
 $("file").onchange = async () => {
   const file = $("file").files[0];
   slip = null; $("send").disabled = true;
