@@ -86,6 +86,13 @@
   .player span { color:var(--accent); font-size:15px; }
   .pair { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; }
   .pair button { height:44px; border-radius:12px; border:1px solid var(--field-line); background:var(--field); color:var(--ink); font:500 15px "Bai Jamjuree", sans-serif; cursor:pointer; }
+  .vlabel { font-size:13px; color:var(--muted); align-self:flex-start; }
+  .vchips { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; width:100%; }
+  .vchips button { min-height:50px; border-radius:12px; border:1px solid var(--field-line); background:var(--field); color:var(--ink);
+    font:500 13px "Bai Jamjuree", sans-serif; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:4px; }
+  .vchips button small { font-size:10.5px; color:var(--dim); font-weight:400; }
+  .vchips button.on { border-color:var(--accent); background:var(--accent-deep); color:#fff; }
+  .vchips button.on small { color:#c9b8ff; }
   .warn { font-size:12px; color:#c9b8ff; background:#1a1726; border:1px solid #2c2640; border-radius:10px; padding:8px 10px; }
 </style>
 </head>
@@ -156,6 +163,11 @@
     <div class="rec" id="voiceDone" hidden>
       <div class="player"><button type="button" id="voicePlay" aria-label="ฟังเสียงที่อัด">▶</button><canvas id="voiceShape" width="500" height="60"></canvas><span class="dots" id="voiceLength"></span></div>
       <div class="pair"><button type="button" id="voiceAgain">อัดใหม่</button><button type="button" id="voiceDrop">ลบเสียง</button></div>
+      <div class="vlabel" id="fxLabel">เปลี่ยนเสียง <span class="opt">ไม่อยากใช้เสียงจริงก็ได้</span></div>
+      <div class="vchips" id="fxChips"></div>
+      <div class="vlabel" id="bgLabel">เสียงพื้นหลัง</div>
+      <div class="vchips" id="bgChips"></div>
+      <div class="hint">กดเลือกแล้วได้ยินตัวอย่าง · กด ▶ ฟังอีกรอบ</div>
     </div>
     <div class="warn">เสียงนี้จะออกในสตรีม · ด่าได้แต่อย่าแรง</div>
   </section>
@@ -178,6 +190,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script src="common.js"></script>
+<script src="voice-fx.js"></script>
 <script>
 const C = window.DONATE_CONFIG;
 const $ = id => document.getElementById(id);
@@ -295,12 +308,81 @@ function clipShown() {
 const VOICE_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
 let voice = null;      // { blob, type, ext, seconds, url }
 let recording = null;  // { recorder, stream, ac, analyser, chunks, levels, started, seconds }
-const voiceAudio = new Audio();
-const voiceOn = () => !!(C.voiceMinAmount && C.voiceSeconds && window.MediaRecorder && navigator.mediaDevices);
+// ค่าตั้งเสียงกับรายการเสียงพื้นหลังมาจาก Supabase (setup-voice-fx.sql · ACEACE แก้ได้เอง ไม่ต้อง push) · ยังไม่มี = ใช้ config.js
+const page = { voice: true, voice_min: C.voiceMinAmount, voice_seconds: C.voiceSeconds, effects: Object.keys(VoiceFx.NAMES),
+               voice_volume: 80, bg_volume: 40, bg_lead: 1, bg_duck: 30 };
+let bgs = [], fxPick = "", bgPick = "", audioCtx = null, previewNode = null, voiceDecoded = null;
+const bgCache = {};
+async function loadPage() {
+  try {
+    const { data } = await sb.from("page_settings").select("settings").eq("id", 1).maybeSingle();
+    if (data && data.settings && typeof data.settings === "object") for (const k of Object.keys(page)) if (k in data.settings) page[k] = data.settings[k];
+  } catch {}
+  try {
+    const { data } = await sb.from("voice_bgs").select("id,name,sort").order("sort");
+    if (Array.isArray(data)) bgs = data.filter(b => /^[a-z0-9]{6,24}$/.test(b.id) && typeof b.name === "string");
+  } catch {}
+  page.effects = (Array.isArray(page.effects) ? page.effects : []).filter(e => e in VoiceFx.NAMES);
+  if (!page.effects.includes(fxPick)) fxPick = page.effects[0] || "";
+  if (!bgs.some(b => b.id === bgPick)) bgPick = "";
+  voiceChoices(); voiceShown();
+}
+function voiceChoices() {
+  const fill = (box, items, picked, pick) => {
+    box.innerHTML = "";
+    for (const [key, name, hint] of items) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = key === picked ? "on" : "";
+      b.append(name); if (hint) { const s = document.createElement("small"); s.textContent = hint; b.append(s); }
+      b.onclick = () => { pick(key); voiceChoices(); playPreview(); };
+      box.appendChild(b);
+    }
+  };
+  $("fxLabel").hidden = $("fxChips").hidden = !page.effects.length;
+  fill($("fxChips"), page.effects.map(k => [k, VoiceFx.NAMES[k], VoiceFx.HINTS[k]]), fxPick, k => { fxPick = k; });
+  $("bgLabel").hidden = $("bgChips").hidden = !bgs.length;
+  fill($("bgChips"), [["", "ไม่มี", ""], ...bgs.map(b => [b.id, b.name, ""])], bgPick, k => { bgPick = k; });
+}
+function ctx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  audioCtx.resume();
+  return audioCtx;
+}
+function bgBuffer(id) {
+  if (!id) return Promise.resolve(null);
+  if (!bgCache[id]) bgCache[id] = (async () => {
+    const { data, error } = await sb.from("voice_bgs").select("audio").eq("id", id).single();
+    if (error || !data || !/^data:audio\/(mp4|webm);base64,/.test(data.audio)) throw new Error("no background");
+    return ctx().decodeAudioData(await (await fetch(data.audio)).arrayBuffer());
+  })();
+  return bgCache[id].catch(() => { delete bgCache[id]; return null; });
+}
+function stopPreview() {
+  if (previewNode) { const node = previewNode; previewNode = null; try { node.stop(); } catch {} }
+  $("voicePlay").textContent = "▶";
+}
+async function playPreview() {
+  stopPreview();
+  if (!voice) return;
+  const a = ctx(), mine = {};
+  previewNode = mine; $("voicePlay").textContent = "…";
+  try {
+    if (!voiceDecoded) voiceDecoded = await a.decodeAudioData(await voice.blob.arrayBuffer());
+    const buffer = VoiceFx.render(voiceDecoded, fxPick, await bgBuffer(bgPick), page, a);
+    if (previewNode !== mine) return;  // another chip was pressed meanwhile
+    const source = a.createBufferSource(); source.buffer = buffer; source.connect(a.destination);
+    source.onended = () => { if (previewNode === source) { previewNode = null; $("voicePlay").textContent = "▶"; } };
+    previewNode = source; source.start(); $("voicePlay").textContent = "■";
+  } catch {
+    if (previewNode === mine) { previewNode = null; $("voicePlay").textContent = "▶"; }
+    say("เล่นตัวอย่างไม่ได้ ลองอัดใหม่อีกครั้ง", "bad");
+  }
+}
+const voiceOn = () => !!(page.voice && page.voice_min && page.voice_seconds && window.MediaRecorder && navigator.mediaDevices);
 function voiceShown() {
-  const on = voiceOn() && Number($("amount").value) >= C.voiceMinAmount;
+  const on = voiceOn() && Number($("amount").value) >= page.voice_min;
   $("voiceCard").hidden = !on;
-  $("voiceHint").textContent = `แตะเพื่ออัด · ยาวได้ ${C.voiceSeconds} วิ · ยอด ${C.voiceMinAmount} บาทขึ้นไป`;
+  $("voiceHint").textContent = `แตะเพื่ออัด · ยาวได้ ${page.voice_seconds} วิ · ยอด ${page.voice_min} บาทขึ้นไป`;
   if (!on && recording) stopVoice();
   return on;
 }
@@ -334,7 +416,7 @@ $("voiceStart").onclick = async () => {
   const data = new Float32Array(analyser.fftSize);
   (function frame() {
     if (recording !== rec) return;
-    const left = C.voiceSeconds - (performance.now() - rec.started) / 1000;
+    const left = page.voice_seconds - (performance.now() - rec.started) / 1000;
     if (left <= 0) return stopVoice();
     $("voiceCount").textContent = Math.ceil(left);
     analyser.getFloatTimeDomainData(data);
@@ -349,38 +431,32 @@ function stopVoice() {
   const rec = recording;
   if (!rec) return;
   recording = null;
-  rec.seconds = Math.min(C.voiceSeconds, (performance.now() - rec.started) / 1000);
+  rec.seconds = Math.min(page.voice_seconds, (performance.now() - rec.started) / 1000);
   if (rec.recorder.state !== "inactive") rec.recorder.stop();
   rec.stream.getTracks().forEach(t => t.stop());
   rec.ac.close().catch(() => {});
 }
 $("voiceStop").onclick = stopVoice;
 function finishVoice(rec) {
-  const seconds = rec.seconds ?? Math.min(C.voiceSeconds, (performance.now() - rec.started) / 1000);
+  const seconds = rec.seconds ?? Math.min(page.voice_seconds, (performance.now() - rec.started) / 1000);
   const type = (rec.recorder.mimeType || (rec.chunks[0] && rec.chunks[0].type) || "audio/webm").split(";")[0];
   const blob = new Blob(rec.chunks, { type });
   if (!blob.size || seconds < .5) { voiceView("Idle"); return say("เสียงสั้นเกินไป ลองอัดใหม่", "bad"); }
   if (blob.size > 2000000) { voiceView("Idle"); return say("ไฟล์เสียงใหญ่เกิน ลองอัดให้สั้นลง", "bad"); }
   const ext = /mp4|aac|m4a/.test(type) ? "m4a" : /ogg/.test(type) ? "ogg" : "webm";
-  voice = { blob, type, ext, seconds, url: URL.createObjectURL(blob) };
-  voiceAudio.src = voice.url;
+  voice = { blob, type, ext, seconds, url: URL.createObjectURL(blob) }; voiceDecoded = null;
   const cols = 48, L = rec.levels;
   dotsWave($("voiceShape"), [...Array(cols)].map((_, i) => Math.max(0, ...L.slice(Math.floor(i * L.length / cols), Math.floor((i + 1) * L.length / cols)))), "#b9a6ff");
   $("voiceLength").textContent = "0:" + String(Math.round(seconds)).padStart(2, "0");
   voiceView("Done");
 }
 function dropVoice() {
-  voiceAudio.pause();
+  stopPreview();
   if (voice) URL.revokeObjectURL(voice.url);
-  voice = null; voiceView("Idle");
+  voice = null; voiceDecoded = null; voiceView("Idle");
 }
-$("voicePlay").onclick = () => {
-  if (!voice) return;
-  if (!voiceAudio.paused) { voiceAudio.pause(); voiceAudio.currentTime = 0; return; }
-  voiceAudio.play().catch(() => {});
-};
-voiceAudio.onplay = () => { $("voicePlay").textContent = "■"; };
-voiceAudio.onpause = voiceAudio.onended = () => { $("voicePlay").textContent = "▶"; };
+$("voicePlay").onclick = () => previewNode ? stopPreview() : playPreview();
+loadPage();
 $("voiceAgain").onclick = () => $("voiceStart").click();
 $("voiceDrop").onclick = dropVoice;
 const randomId = () => [...crypto.getRandomValues(new Uint8Array(12))].map(b => b.toString(16).padStart(2, "0")).join("");
@@ -473,7 +549,12 @@ $("send").onclick = async () => {
     message: $("text").value.trim(), slip_path: path, ...(clip || {}),
   };
   const withWho = r => tw.login ? { ...r, [tw.platform]: tw.login } : r;
-  let { error } = await sb.from("slips").insert(withWho(voicePath ? { ...row, voice_path: voicePath } : row));
+  const picks = {};
+  if (voicePath && page.effects.includes(fxPick)) picks.voice_effect = fxPick;
+  if (voicePath && bgs.some(b => b.id === bgPick)) picks.voice_bg = bgPick;
+  let { error } = await sb.from("slips").insert(withWho(voicePath ? { ...row, voice_path: voicePath, ...picks } : row));
+  // ยังไม่ได้รัน setup-voice-fx.sql: ส่งเสียงไปก่อนโดยไม่มีเอฟเฟกต์และเสียงพื้นหลัง
+  if (error && voicePath && error.code === "PGRST204" && Object.keys(picks).length) ({ error } = await sb.from("slips").insert(withWho({ ...row, voice_path: voicePath })));
   // ยังไม่ได้รัน setup-voice.sql: ส่งโดเนตไปก่อนโดยไม่มีเสียง
   if (error && voicePath && error.code === "PGRST204") { voicePath = null; ({ error } = await sb.from("slips").insert(withWho(row))); }
   // ยังไม่ได้รัน setup-twitch.sql: ส่งโดเนตไปก่อนโดยไม่มีชื่อ Twitch / TikTok
