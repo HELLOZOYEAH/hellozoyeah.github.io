@@ -259,6 +259,11 @@
   .live .left { font-size:13px; color:var(--muted); }
   #voiceWave { width:100%; height:96px; display:block; background:var(--field); border:1px solid var(--field-line); border-radius:12px; }
   .withBg { font-size:12px; color:#cfc5ef; }
+  /* start over while recording: the take thrown away, a new one (and its background) from the top at once */
+  .recBtns { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:14px; width:100%; }
+  .redo { justify-self:end; display:flex; align-items:center; gap:6px; height:40px; padding:0 14px; border-radius:999px;
+    border:1px solid var(--field-line); background:var(--field); color:var(--ink); font:500 14px "Bai Jamjuree", sans-serif; cursor:pointer; }
+  .redo svg { width:16px; height:16px; }
   /* after recording: the mix as it will sound, a playhead walks over it; a tap on it jumps there */
   .player { display:flex; flex-direction:column; gap:8px; width:100%; background:var(--field); border:1px solid var(--field-line); border-radius:12px; padding:10px 12px; }
   .player .row { display:flex; align-items:center; gap:12px; }
@@ -471,8 +476,12 @@
       <div class="live"><span class="tag"><i></i>กำลังอัด</span><span class="dots clock" id="voiceClock">0:00</span><span class="left" id="voiceLeft"></span></div>
       <canvas id="voiceWave"></canvas>
       <div class="withBg" id="recBg" hidden></div>
-      <button type="button" class="mic on" id="voiceStop" aria-label="หยุดอัด"><svg viewBox="0 0 24 24" fill="#ff8fa3" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>
-      <div class="hint">แตะ ■ เพื่อหยุด · ครบเวลาหยุดเอง</div>
+      <div class="recBtns">
+        <button type="button" class="redo" id="voiceRedo" aria-label="ทิ้งแล้วอัดใหม่ตั้งแต่ต้น"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>เริ่มใหม่</button>
+        <button type="button" class="mic on" id="voiceStop" aria-label="หยุดอัด"><svg viewBox="0 0 24 24" fill="#ff8fa3" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>
+        <span></span>
+      </div>
+      <div class="hint">พูดพลาด กด เริ่มใหม่ · พอใจแล้วแตะ ■ เพื่อหยุด</div>
     </div>
     <div class="rec" id="voiceDone" hidden>
       <div class="player">
@@ -1140,7 +1149,7 @@ $("voiceStart").onclick = async () => {
   a.createMediaStreamSource(stream).connect(analyser);
   const rec = recording = { recorder, stream, analyser, chunks: [], cols: new Array(LIVE).fill(0), at: 0, withBg: "" };
   recorder.ondataavailable = e => { if (e.data.size) rec.chunks.push(e.data); };
-  recorder.onstop = () => finishVoice(rec);
+  recorder.onstop = () => rec.again ? $("voiceStart").click() : finishVoice(rec);
   // the background starts with the recording, so the voice lands on its beat
   const bed = bgPick ? await bgBuffer(bgPick) : null;
   if (recording !== rec) return;
@@ -1187,6 +1196,7 @@ function stopVoice() {
   rec.stream.getTracks().forEach(t => t.stop());
 }
 $("voiceStop").onclick = stopVoice;
+$("voiceRedo").onclick = () => { if (recording) { recording.again = true; stopVoice(); } };
 function finishVoice(rec) {
   const seconds = rec.seconds ?? 0;
   const type = (rec.recorder.mimeType || (rec.chunks[0] && rec.chunks[0].type) || "audio/webm").split(";")[0];
