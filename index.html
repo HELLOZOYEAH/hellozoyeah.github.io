@@ -273,6 +273,11 @@
   .redo { justify-self:end; display:flex; align-items:center; gap:6px; height:40px; padding:0 14px; border-radius:999px;
     border:1px solid var(--field-line); background:var(--field); color:var(--ink); font:500 14px "Bai Jamjuree", sans-serif; cursor:pointer; }
   .redo svg { width:16px; height:16px; }
+  .redo.done { justify-self:start; }
+  /* paused: the middle button waits to go on (a record dot), no ring, the tag stops blinking */
+  .mic.on.paused { animation:none; background:var(--field); border-color:#5a4450; }
+  .live .tag.paused { color:var(--muted); }
+  .live .tag.paused i { animation:none; background:#6d6470; }
   /* after recording: the mix as it will sound, a playhead walks over it; a tap on it jumps there */
   .player { display:flex; flex-direction:column; gap:8px; width:100%; background:var(--field); border:1px solid var(--field-line); border-radius:12px; padding:10px 12px; }
   .player .row { display:flex; align-items:center; gap:12px; }
@@ -482,15 +487,15 @@
       <div class="phones" id="phones" hidden>ใส่หูฟังจะได้ยินเพลงชัด และเพลงไม่ทับเสียงพูด</div>
     </div>
     <div class="rec" id="voiceOn" hidden>
-      <div class="live"><span class="tag"><i></i>กำลังอัด</span><span class="dots clock" id="voiceClock">0:00</span><span class="left" id="voiceLeft"></span></div>
+      <div class="live"><span class="tag" id="recTag"><i></i><span>กำลังอัด</span></span><span class="dots clock" id="voiceClock">0:00</span><span class="left" id="voiceLeft"></span></div>
       <canvas id="voiceWave"></canvas>
       <div class="withBg" id="recBg" hidden></div>
       <div class="recBtns">
         <button type="button" class="redo" id="voiceRedo" aria-label="ทิ้งแล้วอัดใหม่ตั้งแต่ต้น"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>เริ่มใหม่</button>
-        <button type="button" class="mic on" id="voiceStop" aria-label="หยุดอัด"><svg viewBox="0 0 24 24" fill="#ff8fa3" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>
-        <span></span>
+        <button type="button" class="mic on" id="voicePause" aria-label="พักการอัด"><svg viewBox="0 0 24 24" fill="#ff8fa3" aria-hidden="true"><rect x="7" y="6" width="3.6" height="12" rx="1.2"/><rect x="13.4" y="6" width="3.6" height="12" rx="1.2"/></svg></button>
+        <button type="button" class="redo done" id="voiceStop" aria-label="อัดเสร็จ"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>หยุด</button>
       </div>
-      <div class="hint">พูดพลาด กด เริ่มใหม่ · พอใจแล้วแตะ ■ เพื่อหยุด</div>
+      <div class="hint" id="recHint"></div>
     </div>
     <div class="rec" id="voiceDone" hidden>
       <div class="player">
@@ -1207,50 +1212,92 @@ $("voiceStart").onclick = async () => {
   const recorder = new MediaRecorder(stream, type ? { mimeType: type } : {});
   const analyser = a.createAnalyser(); analyser.fftSize = 1024;
   a.createMediaStreamSource(stream).connect(analyser);
-  const rec = recording = { recorder, stream, analyser, chunks: [], cols: new Array(LIVE).fill(0), at: 0, withBg: "" };
+  const rec = recording = { recorder, stream, analyser, chunks: [], cols: new Array(LIVE).fill(0), at: 0, withBg: "",
+                            elapsed: 0, segment: 0, paused: false };
   recorder.ondataavailable = e => { if (e.data.size) rec.chunks.push(e.data); };
   recorder.onstop = () => rec.again ? $("voiceStart").click() : finishVoice(rec);
   // the background starts with the recording, so the voice lands on its beat
   const bed = bgPick ? await bgBuffer(bgPick) : null;
   if (recording !== rec) return;
   if (bed) {
-    const source = a.createBufferSource(), gain = a.createGain();
-    source.buffer = bed; source.loop = true; gain.gain.value = bgLoud() / 100; source.connect(gain).connect(a.destination);
-    rec.bg = source; rec.bgGain = gain; rec.withBg = bgPick;
+    rec.bed = bed; rec.bgGain = a.createGain(); rec.bgGain.gain.value = bgLoud() / 100; rec.bgGain.connect(a.destination);
+    rec.withBg = bgPick; rec.bgOffset = 0;
     $("recBg").textContent = `♪ ${bgName(bgPick)} กำลังเล่น · พากไปพร้อมเพลงได้เลย`;
   }
   $("recBg").hidden = !bed;
   // the background starts when the recording really does; what is still behind: the time the background takes to
-  // reach the ears and the voice to reach the recording (the slider after recording fixes the rest by ear)
+  // reach the ears and the voice to reach the recording (the timing view after recording fixes the rest by eye)
   const track = stream.getAudioTracks()[0], heard = (a.baseLatency || 0) + (a.outputLatency || 0);
   rec.delay = bed ? Math.max(0, Math.min(1.5, heard + ((track && track.getSettings().latency) || 0))) : 0;
-  recorder.onstart = () => { rec.started = performance.now(); if (rec.bg) rec.bg.start(); };
-  rec.started = performance.now();
+  recorder.onstart = recorder.onresume = () => { rec.segment = performance.now(); bedFrom(rec, rec.bgOffset || 0); };
+  rec.segment = performance.now();
   recorder.start(250);
-  voiceView("On"); say("");
+  voiceView("On"); say(""); recShown(rec);
   const data = new Float32Array(analyser.fftSize);
   (function frame() {
     if (recording !== rec) return;
-    const t = (performance.now() - rec.started) / 1000, left = page.voice_seconds - t;
+    const t = recTime(rec), left = page.voice_seconds - t;
     if (left <= 0) return stopVoice();
     $("voiceClock").textContent = clock(t);
     $("voiceLeft").textContent = `เหลือ ${Math.ceil(left)} วิ`;
-    analyser.getFloatTimeDomainData(data);
-    let sum = 0; for (const x of data) sum += x * x;
-    const level = Math.min(1, Math.pow(Math.sqrt(sum / data.length) * 5, .7));
-    // the last few seconds slide to the left, the newest bar on the right follows the mouth every frame
-    const step = Math.floor(t / LIVE_STEP);
-    while (rec.at < step) { rec.cols.shift(); rec.cols.push(0); rec.at++; }
-    rec.cols[LIVE - 1] = Math.max(rec.cols[LIVE - 1] * .6, level);
-    bars($("voiceWave"), rec.cols, LIVE, "#8ff0b8", "#24342c");
+    if (!rec.paused) {
+      analyser.getFloatTimeDomainData(data);
+      let sum = 0; for (const x of data) sum += x * x;
+      const level = Math.min(1, Math.pow(Math.sqrt(sum / data.length) * 5, .7));
+      // the last few seconds slide to the left, the newest bar on the right follows the mouth every frame
+      const step = Math.floor(t / LIVE_STEP);
+      while (rec.at < step) { rec.cols.shift(); rec.cols.push(0); rec.at++; }
+      rec.cols[LIVE - 1] = Math.max(rec.cols[LIVE - 1] * .6, level);
+      bars($("voiceWave"), rec.cols, LIVE, "#8ff0b8", "#24342c");
+    }
     requestAnimationFrame(frame);
   })();
+};
+// seconds recorded: paused time left out
+const recTime = rec => rec.elapsed + (rec.paused ? 0 : (performance.now() - rec.segment) / 1000);
+// the background from `offset` seconds in (a paused one goes on where it stopped)
+function bedFrom(rec, offset) {
+  if (!rec.bed || recording !== rec) return;
+  const a = ctx(), source = a.createBufferSource();
+  source.buffer = rec.bed; source.loop = true; source.connect(rec.bgGain);
+  source.start(0, offset % rec.bed.duration);
+  rec.bg = source; rec.bgFrom = a.currentTime - offset;
+}
+function bedStop(rec) {
+  if (!rec.bg) return;
+  rec.bgOffset = ctx().currentTime - rec.bgFrom;
+  try { rec.bg.stop(); } catch {}
+  rec.bg = null;
+}
+function recShown(rec) {
+  $("recTag").classList.toggle("paused", rec.paused); $("recTag").lastChild.textContent = rec.paused ? "พักอยู่" : "กำลังอัด";
+  $("voicePause").classList.toggle("paused", rec.paused);
+  if (rec.bed) $("recBg").textContent = rec.paused ? `♪ ${bgName(rec.withBg)} พักอยู่ · อัดต่อแล้วเล่นต่อจากตรงนี้` : `♪ ${bgName(rec.withBg)} กำลังเล่น · พากไปพร้อมเพลงได้เลย`;
+  $("voicePause").setAttribute("aria-label", rec.paused ? "อัดต่อ" : "พักการอัด");
+  $("voicePause").innerHTML = rec.paused ? '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="#ff6b86"/></svg>' : PAUSE_ICON;
+  $("recHint").textContent = rec.paused ? "พักอยู่ · แตะ ● อัดต่อจากตรงนี้ (เพลงเล่นต่อจากเดิม) · เสร็จแล้วกด หยุด"
+    : "พูดพลาด กด เริ่มใหม่ · แตะตรงกลางเพื่อพัก · เสร็จแล้วกด หยุด";
+}
+const PAUSE_ICON = `<svg viewBox="0 0 24 24" fill="#ff8fa3" aria-hidden="true"><rect x="7" y="6" width="3.6" height="12" rx="1.2"/><rect x="13.4" y="6" width="3.6" height="12" rx="1.2"/></svg>`;
+// the middle button: pause, and again to go on from where it stopped (the background too)
+$("voicePause").onclick = () => {
+  const rec = recording;
+  if (!rec || rec.recorder.state === "inactive") return;
+  if (!rec.paused) {
+    rec.elapsed = recTime(rec); rec.paused = true;
+    if (rec.recorder.state === "recording") rec.recorder.pause();
+    bedStop(rec);
+  } else {
+    rec.paused = false; rec.segment = performance.now();
+    if (rec.recorder.state === "paused") rec.recorder.resume();  // onresume starts the background where it stopped
+  }
+  recShown(rec);
 };
 function stopVoice() {
   const rec = recording;
   if (!rec) return;
+  rec.seconds = Math.min(page.voice_seconds, recTime(rec));
   recording = null;
-  rec.seconds = Math.min(page.voice_seconds, (performance.now() - (rec.started || performance.now())) / 1000);
   if (rec.bg) try { rec.bg.stop(); } catch {}
   if (rec.recorder.state !== "inactive") rec.recorder.stop();
   rec.stream.getTracks().forEach(t => t.stop());
