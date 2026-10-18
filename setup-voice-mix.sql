@@ -1,11 +1,12 @@
 -- รันครั้งเดียวใน Supabase > SQL Editor *หลัง* setup-voice-fx.sql และ *ก่อน* อัปหน้าเว็บที่ปรับความดังพื้นหลังได้ · รันซ้ำได้
--- (2026-10-18) คนโดเนตตั้งความดังเสียงพื้นหลังเอง (0-100) และอัดพร้อมเพลงได้ (voice_bg_sync: เสียงเริ่มพร้อมเพลง ไม่มีช่วงเพลงนำ)
+-- (2026-10-18) คนโดเนตตั้งความดังเสียงพื้นหลังเอง (0-100) และอัดพร้อมเพลงได้ (voice_bg_delay: เสียงที่อัดช้ากว่าเพลงกี่วินาที
+-- จากความหน่วงของลำโพงและไมค์ 0-2 · แอปตัดช่วงนั้นออกจากต้นเสียง แล้วเริ่มเสียงพร้อมเพลง ไม่มีช่วงเพลงนำ)
 -- ทั้งสองค่าใส่ได้เฉพาะเมื่อเลือกเสียงพื้นหลัง · ไม่ใส่ = ใช้ค่าที่สตรีมเมอร์ตั้งในแอป
 
 alter table public.slips  add column if not exists voice_bg_volume integer;
-alter table public.slips  add column if not exists voice_bg_sync   boolean;
+alter table public.slips  add column if not exists voice_bg_delay  numeric(4,2);
 alter table public.alerts add column if not exists voice_bg_volume integer;
-alter table public.alerts add column if not exists voice_bg_sync   boolean;
+alter table public.alerts add column if not exists voice_bg_delay  numeric(4,2);
 
 -- เหมือน setup-voice-fx.sql เพิ่มแค่สองบรรทัดท้าย
 drop policy if exists "anyone can submit slip" on public.slips;
@@ -33,15 +34,15 @@ create policy "anyone can submit slip" on public.slips for insert to anon
     and (voice_bg is null or (voice_path is not null and voice_bg ~ '^[a-z0-9]{6,24}$'))
     and (video_url is null or voice_path is null)
     and (voice_bg_volume is null or (voice_bg is not null and voice_bg_volume between 0 and 100))
-    and (voice_bg_sync is null or voice_bg is not null)
+    and (voice_bg_delay is null or (voice_bg is not null and voice_bg_delay between 0 and 2))
   );
 
 create or replace function public.slip_to_alert() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   insert into public.alerts (name, amount, message, video_url, video_start, twitch, tiktok, voice_path, voice_effect, voice_bg,
-                             voice_bg_volume, voice_bg_sync)
+                             voice_bg_volume, voice_bg_delay)
   values (new.name, new.amount, new.message, new.video_url, new.video_start, new.twitch, new.tiktok, new.voice_path,
-          new.voice_effect, new.voice_bg, new.voice_bg_volume, new.voice_bg_sync);
+          new.voice_effect, new.voice_bg, new.voice_bg_volume, new.voice_bg_delay);
   return new;
 end $$;
