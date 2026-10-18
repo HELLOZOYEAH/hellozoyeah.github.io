@@ -263,7 +263,8 @@
     background-size:100% 100%, 300% 100%; animation:rainbow 4s linear infinite; }
   .roll.landed .rollCatch { visibility:hidden; }
   @keyframes caught { 0% { transform:scale(.94); } 60% { transform:scale(1.04); } 100% { transform:none; } }
-  .amountRow input[type=number]::-webkit-inner-spin-button { margin-right:4px; }
+  .amountRow input[type=number] { -moz-appearance:textfield; appearance:textfield; }  /* no up/down arrows beside the die */
+  .amountRow input[type=number]::-webkit-inner-spin-button, .amountRow input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
   /* the slip, held like a trading card: it sways, follows a finger, a mouse or the phone's tilt, and wears the amount's rank
      (C · B · A · A+ · S at 5,000 · SS+ at 10,000 · SSS at 100,000) in its aura */
   .slipCard { perspective:700px; display:flex; justify-content:center; padding:10px 0 4px; }
