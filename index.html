@@ -73,7 +73,7 @@
   .shake { animation:shake .9s ease-in-out infinite; transform-origin:50% 20%; }
   @keyframes shake { 0%, 100% { transform:translateY(0) rotate(0); } 20% { transform:translateY(3px) rotate(-12deg); } 40% { transform:translateY(0) rotate(10deg); }
     60% { transform:translateY(3px) rotate(-8deg); } 80% { transform:rotate(4deg); } }
-  @media (prefers-reduced-motion: reduce) { .slide, .bob, .pump, .spark, .wag, .shake { animation:none !important; } }
+  /* the hands keep moving even when the system asks for less motion: they are the joke, small and never flashing (2026-10-18) */
   .quick { margin-top:14px; }
   .qrbox { align-self:center; background:#fff; border-radius:16px; padding:12px; box-shadow:0 0 0 1px var(--accent-line), 0 0 30px rgba(185,166,255,.25); }
   #qr svg { display:block; width:210px; height:210px; }
