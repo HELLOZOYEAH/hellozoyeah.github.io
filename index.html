@@ -260,7 +260,14 @@
   .roll.landed .rollHint { font:900 18px "Cinzel", serif; letter-spacing:2px; }
   .rollCatch { min-width:180px; height:52px; padding:0 22px; border-radius:16px; border:1.5px solid transparent; color:#fff; font:600 19px "Bai Jamjuree", sans-serif; cursor:pointer;
     background:linear-gradient(#15121f, #15121f) padding-box, linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6) border-box;
-    background-size:100% 100%, 300% 100%; animation:rainbow 4s linear infinite; }
+    background-size:100% 100%, 300% 100%; animation:rainbow 4s linear infinite;
+    opacity:0; filter:blur(12px); pointer-events:none; }  /* cloaked: its place is kept, so nothing moves when it appears */
+  /* after 5 taps or 6 seconds it uncloaks: flickers, shimmers and comes into focus, like something invisible showing itself */
+  .roll.reveal .rollCatch { pointer-events:auto; animation:uncloak 1.4s ease-out forwards, rainbow 4s linear infinite; }
+  @keyframes uncloak { 0% { opacity:0; filter:blur(12px) hue-rotate(0deg); transform:scale(1.05) skewX(-8deg); }
+    22% { opacity:.4; filter:blur(5px) hue-rotate(90deg); transform:skewX(6deg); } 36% { opacity:.08; filter:blur(9px) hue-rotate(160deg); }
+    55% { opacity:.65; filter:blur(2px) hue-rotate(240deg); transform:skewX(-3deg); } 70% { opacity:.3; filter:blur(4px); }
+    100% { opacity:1; filter:none; transform:none; } }
   .roll.landed .rollCatch { visibility:hidden; }
   @keyframes caught { 0% { transform:scale(.94); } 60% { transform:scale(1.04); } 100% { transform:none; } }
   .amountRow input[type=number] { -moz-appearance:textfield; appearance:textfield; }  /* no up/down arrows beside the die */
@@ -566,26 +573,30 @@ function spinner(rowId, buttonId, pick, show, changed, kind, say) {
   };
   return s;
 }
+let rollTaps = 0, rollReveal = 0;  // the stop button shows itself after 5 taps or 6 seconds
+function revealStop() { clearTimeout(rollReveal); if (rolling) $("roll").classList.add("reveal"); }
 function rollOpen(s, kind) {
   if (rolling && rolling !== s) rolling.stop();
   clearTimeout(rollClose);
   rolling = s;
   const roll = $("roll");
-  roll.hidden = false; roll.classList.remove("landed", "out"); roll.dataset.kind = kind;
+  roll.hidden = false; roll.classList.remove("landed", "out", "reveal"); roll.dataset.kind = kind;
   $("rollHint").textContent = "แตะลูกเต๋า = หมุนแรงขึ้น";
+  rollTaps = 1; clearTimeout(rollReveal); rollReveal = setTimeout(revealStop, 6000);  // the tap that opened it counts
 }
 function rollLand(s) {  // a natural 20, every time; then back to the page
   if (rolling !== s) return;
-  rolling = null;
+  rolling = null; clearTimeout(rollReveal);
   const roll = $("roll");
   $("d20n").textContent = "20"; $("rollHint").textContent = "NAT 20 · คริติคอล!";
   roll.classList.add("landed");
   rollClose = setTimeout(() => { roll.classList.add("out"); rollClose = setTimeout(() => { roll.hidden = true; }, 350); }, 1300);
 }
-$("d20").onclick = () => rolling && rolling.push();
-$("rollCatch").onclick = () => rolling && rolling.stop();
-$("rollValue").onclick = () => rolling && rolling.stop();
-addEventListener("keydown", e => { if (rolling && (e.key === "Escape" || e.key === "Enter" || e.key === " ")) { e.preventDefault(); rolling.stop(); } });
+$("d20").onclick = () => { if (!rolling) return; rolling.push(); if (++rollTaps >= 5) revealStop(); };
+const canStop = () => rolling && $("roll").classList.contains("reveal");  // only once the stop button has shown itself
+$("rollCatch").onclick = () => canStop() && rolling.stop();
+$("rollValue").onclick = () => canStop() && rolling.stop();
+addEventListener("keydown", e => { if (canStop() && (e.key === "Escape" || e.key === "Enter" || e.key === " ")) { e.preventDefault(); rolling.stop(); } });
 const nameSpin = spinner("nameRow", "dice", () => COOL_NAMES[Math.floor(Math.random() * COOL_NAMES.length)], v => { $("name").value = v; },
                          on => { $("name").readOnly = on; twitchShown(); }, "name", v => v);
 function spinning() { return $("nameRow").classList.contains("spin"); }
