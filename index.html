@@ -67,14 +67,36 @@
   .spark { position:absolute; animation:twinkle 1.4s ease-in-out infinite; }
   .s1 { top:-6px; left:-12px; } .s2 { bottom:2px; right:-10px; animation-delay:.5s; }
   @keyframes twinkle { 0%, 100% { opacity:0; transform:scale(.4) rotate(0); } 40% { opacity:1; transform:scale(1.1) rotate(25deg); } 70% { opacity:.2; transform:scale(.7) rotate(40deg); } }
-  .wag { animation:wag .55s ease-in-out infinite; transform-origin:50% 100%; }
+  .wag { animation:wag .5s ease-in-out infinite; transform-origin:50% 100%; }
   .wag.d1 { animation-delay:.15s; }
-  @keyframes wag { 0%, 100% { transform:rotate(-18deg); } 50% { transform:rotate(18deg); } }
+  @keyframes wag { 0%, 100% { transform:rotate(-22deg); } 50% { transform:rotate(22deg); } }
+  /* the bigger your own amount, the happier: thumbs (100) → clapping, gold (300) → a deep bow, COMBO (1,000) → raised hands
+     jumping, rainbow (5,000) */
+  .clap { animation:clap .42s ease-in-out infinite; transform-origin:50% 80%; }
+  @keyframes clap { 0%, 100% { transform:scale(1) rotate(-6deg); } 50% { transform:scale(1.22) rotate(6deg); } }
+  .bow { animation:bow 1.6s ease-in-out infinite; transform-origin:50% 100%; }
+  @keyframes bow { 0%, 15% { transform:none; } 45%, 60% { transform:translateY(6px) scale(.92, 1.04); } 70% { transform:translateY(-4px) scale(1.06); } 85%, 100% { transform:none; } }
+  .jump { animation:jump .7s cubic-bezier(.3,.8,.4,1) infinite; transform-origin:50% 100%; }
+  @keyframes jump { 0%, 100% { transform:translateY(0) scale(1.08, .92); } 40% { transform:translateY(-14px) scale(.95, 1.08); } 60% { transform:translateY(-12px); } }
+  .quick button.gold, #amount.gold { border-color:#ffc857; box-shadow:0 0 16px rgba(255,200,87,.3); }
+  .quick button.rainbow, #amount.rainbow { border-color:transparent; background:linear-gradient(var(--field), var(--field)) padding-box,
+    linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6) border-box; background-size:100% 100%, 300% 100%;
+    animation:rainbow 2.4s linear infinite; box-shadow:0 0 18px rgba(197,155,255,.35); }
+  #big.gold { color:#ffe08a; text-shadow:0 0 14px rgba(255,200,80,.6), 0 0 30px rgba(255,170,40,.35); animation:glow 1.6s ease-in-out infinite; }
+  #big.gold.max { animation-duration:.8s; }
+  #big.rainbow { background:linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6); background-size:300% 100%;
+    -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:none; filter:drop-shadow(0 0 12px rgba(255,210,122,.45));
+    animation:rainbow 2.4s linear infinite; }
+  @keyframes glow { 0%, 100% { filter:brightness(1); } 50% { filter:brightness(1.25); } }
+  @keyframes rainbow { to { background-position:300% 0; } }
+  .combo { margin:2px auto 4px; width:max-content; padding:2px 12px; border-radius:999px; border:1px solid #ff8a3d; color:#ffb27a; background:#2a1508;
+    font:700 13px "Bai Jamjuree", sans-serif; letter-spacing:1px; animation:combo 1s ease-in-out infinite; }
+  @keyframes combo { 0%, 100% { transform:scale(1); } 50% { transform:scale(1.08); } }
   .shake { animation:shake .9s ease-in-out infinite; transform-origin:50% 20%; }
   @keyframes shake { 0%, 100% { transform:translateY(0) rotate(0); } 20% { transform:translateY(3px) rotate(-12deg); } 40% { transform:translateY(0) rotate(10deg); }
     60% { transform:translateY(3px) rotate(-8deg); } 80% { transform:rotate(4deg); } }
   /* the hands keep moving even when the system asks for less motion: they are the joke, small and never flashing (2026-10-18) */
-  .quick { margin-top:14px; }
+  .quick { margin-top:26px; }  /* room for the hands above the chips */
   .qrbox { align-self:center; background:#fff; border-radius:16px; padding:12px; box-shadow:0 0 0 1px var(--accent-line), 0 0 30px rgba(185,166,255,.25); }
   #qr svg { display:block; width:210px; height:210px; }
   .hint { text-align:center; font-size:13px; color:var(--muted); }
@@ -220,6 +242,7 @@
   <section class="card">
     <div class="step"><span class="dots">02</span>เลือกยอดแล้วสแกนพร้อมเพย์</div>
     <div class="big"><div class="dots" id="big">0</div><span>บาท</span></div>
+    <div class="combo" id="comboTag" hidden>เปิด COMBO!</div>
     <div class="quick" id="quick"></div>
     <label for="amount" id="amountLabel">หรือใส่ยอดเอง</label>
     <input id="amount" type="number" inputmode="decimal" step="1">
@@ -333,28 +356,43 @@ $("twitch").oninput = twitchShown;
 twitchShown();
 // มือ 3D (hands/ · Microsoft Fluent Emoji · MIT): อยู่ในปุ่มที่กด ชี้ไปยอดถัดไป · ใส่ยอดเอง ≥ ยอดสูงสุด = ยกนิ้วเด้ง · น้อยกว่า = ห้าม / คว่ำนิ้ว
 const hand = (kind, cls, size) => `<img class="${cls}" src="hands/${kind}.png" width="${size}" height="${size}" alt="">`;
-const SPARK = `<img class="spark s1" src="hands/sparkles.png" width="18" height="18" alt=""><img class="spark s2" src="hands/sparkles.png" width="14" height="14" alt="">`;
 let ownAmount = false;  // the donor is typing their own amount
+// your own amount from the biggest chip up: the higher, the happier (hands only); the COMBO line comes from the app
+const JOY = [  // [from baht, hand, move, size, sparkles, chip look, amount look]
+  [5000, "raise", "jump", 52, 4, "rainbow", "rainbow"],
+  [1000, "pray", "bow", 56, 4, "gold", "gold max"],
+  [300, "clap", "clap", 46, 3, "gold", "gold"],
+  [0, "up", "pump", 40, 2, "wow", ""],
+];
+const sparks = n => [["top:-6px;left:-12px", 18, 0], ["bottom:2px;right:-10px", 14, .5], ["top:-14px;right:-4px", 16, .25], ["bottom:-6px;left:-6px", 12, .75]]
+  .slice(0, n).map(([at, w, delay]) => `<img class="spark" style="${at};animation-delay:${delay}s" src="hands/sparkles.png" width="${w}" height="${w}" alt="">`).join("");
 function amountHands() {
   const chips = [...$("quick").children].filter(b => b.dataset.amount), amt = Number($("amount").value);
-  for (const b of chips) { b.querySelectorAll(".hand, .badge").forEach(h => h.remove()); b.classList.remove("wow", "nope"); }
-  $("amount").classList.remove("wow");
+  const looks = ["wow", "nope", "gold", "rainbow"];
+  for (const b of chips) { b.querySelectorAll(".hand, .badge").forEach(h => h.remove()); b.classList.remove(...looks); }
+  $("amount").classList.remove(...looks); $("big").classList.remove("gold", "max", "rainbow");
+  $("comboTag").hidden = !(page.combo_baht > 0 && amt >= page.combo_baht);
   const top = Math.max(...chips.map(b => Number(b.dataset.amount)));
   if (ownAmount) {
     if (!(amt > 0)) return;
+    const [, kind, move, size, n, chipLook, bigLook] = JOY.find(([from]) => amt >= from);
     chips.forEach((b, i) => {
       const badge = document.createElement("span");
-      if (amt >= top) {  // you're great: every chip pumps a big thumb, a beat after the other
-        b.classList.add("wow"); badge.className = `badge pump d${i}`; badge.innerHTML = hand("up", "", 40) + SPARK;
-      } else {  // not that: the small ones wag a stop hand, the biggest turns its thumb down
+      if (amt >= top) {  // happy: every chip, a beat after the other
+        b.classList.add(chipLook); badge.className = `badge ${move} d${i}`; badge.innerHTML = hand(kind, "", size) + sparks(n);
+        badge.style.top = -Math.round(size * .72) + "px"; badge.style.right = -Math.round(size * .3) + "px";  // above the number, never on it
+      } else {  // not that: the small ones wag an index finger, the biggest turns its thumb down
         b.classList.add("nope");
         const biggest = Number(b.dataset.amount) === top;
         badge.className = biggest ? "badge shake" : `badge wag ${i % 2 ? "d1" : ""}`;
-        badge.innerHTML = hand(biggest ? "thumbsdown" : "stop", "", biggest ? 38 : 36);
+        badge.innerHTML = hand(biggest ? "thumbsdown" : "index", "", 38);
       }
       b.appendChild(badge);
     });
-    if (amt >= top) $("amount").classList.add("wow");
+    if (amt >= top) {
+      $("amount").classList.add(chipLook);
+      if (bigLook) $("big").classList.add(...bigLook.split(" "));
+    }
     return;
   }
   const at = chips.findIndex(b => Number(b.dataset.amount) === amt);
@@ -446,7 +484,7 @@ let voice = null;      // { blob, type, ext, seconds, url }
 let recording = null;  // { recorder, stream, ac, analyser, chunks, levels, started, seconds }
 // ค่าตั้งเสียงกับรายการเสียงพื้นหลังมาจาก Supabase (setup-voice-fx.sql · ACEACE แก้ได้เอง ไม่ต้อง push) · ยังไม่มี = ใช้ config.js
 const page = { voice: true, voice_min: C.voiceMinAmount, voice_seconds: C.voiceSeconds, effects: Object.keys(VoiceFx.NAMES),
-               video_min: C.videoMinAmount, video_seconds: C.videoSeconds,
+               video_min: C.videoMinAmount, video_seconds: C.videoSeconds, combo_baht: 0,
                voice_volume: 80, bg_volume: 40, bg_lead: 1, bg_duck: 30 };
 let bgs = [], fxPick = "", bgPick = "", audioCtx = null, previewNode = null, voiceDecoded = null;
 const bgCache = {};
