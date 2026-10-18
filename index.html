@@ -1377,7 +1377,9 @@ async function sendNow() {
   if (error && tw.login && error.code === "PGRST204") ({ error } = await sb.from("slips").insert(row));
   if (error) {
     $("send").disabled = false;
-    return say(error.code === "23505" ? "สลิปนี้ถูกใช้ไปแล้ว" : "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง", "bad");
+    // PT429: setup-guard.sql ให้ส่งได้ 3 ครั้งต่อนาทีต่อเครื่อง (30 ครั้งรวมทั้งเว็บ)
+    return say(error.code === "23505" ? "สลิปนี้ถูกใช้ไปแล้ว"
+      : error.code === "PT429" ? "ส่งถี่เกินไป รอสักนาทีแล้วลองใหม่นะ" : "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง", "bad");
   }
   await sb.storage.from("slips").upload(path, slip.file, { upsert: false }).catch(() => {});
   say(voiceWanted && !voicePath ? "ส่งโดเนตแล้ว แต่ส่งเสียงไม่สำเร็จ · รอฟัง ACE อ่านได้เลย" : "ส่งแล้ว! รอฟัง ACE อ่านบนสตรีมได้เลย 💜", "ok");
