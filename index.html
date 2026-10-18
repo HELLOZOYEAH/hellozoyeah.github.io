@@ -539,13 +539,11 @@ const PLATFORMS = {
             hint: "ACE เรียกชื่อนี้ · จำได้ว่าคุณมาจาก TikTok", bad: "ชื่อ TikTok ใช้ได้แค่ a-z 0-9 _ และ . ยาว 2–24 ตัว" },
 };
 // who: twitch / tiktok (ACE reads that account's name) · cool (a name typed, ชื่อเบียว; may link a Twitch for hearts) · anon
-let platform = "twitch", who = "cool", linked = false;  // a first visit starts at ชื่อเบียว (2026-10-18)
+let platform = "twitch", who = "cool", linked = false;
 try {
   if (localStorage.getItem("donate-platform") === "tiktok") platform = "tiktok";
-  const saved = localStorage.getItem("donate-who");
-  who = ["twitch", "tiktok", "cool", "anon"].includes(saved) ? saved
-      : localStorage.getItem("donate-twitch") && localStorage.getItem("donate-use-twitch") !== "0" ? platform
-      : "cool";  // a saved Twitch/TikTok choice stays; otherwise ชื่อเบียว
+  // every visit opens at ชื่อเบียว, even after a donation sent as Twitch or TikTok (the streamer, 2026-10-18);
+  // the account typed last time is still filled in for whoever taps Twitch or TikTok
   linked = who === "cool" && !!localStorage.getItem("donate-twitch") && localStorage.getItem("donate-linked") === "1";
 } catch {}
 function twitchTyped() {
