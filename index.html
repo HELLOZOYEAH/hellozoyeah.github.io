@@ -258,7 +258,20 @@
   @keyframes blink { to { visibility:hidden; } }
   .live .clock { font-size:26px; color:#f3eaff; line-height:1; }
   .live .left { font-size:13px; color:var(--muted); }
-  #voiceWave { width:100%; height:96px; display:block; background:var(--field); border:1px solid var(--field-line); border-radius:12px; }
+  /* the editor's lanes (2026-10-18): the voice, and a harmony right under it on the same time; a tap picks the lane the
+     buttons work on, the speaker mutes one while listening (never what is sent) */
+  .lanes { display:flex; flex-direction:column; gap:6px; width:100%; }
+  .lane { background:var(--field); border:1px solid var(--field-line); border-radius:12px; padding:6px 8px 4px; }
+  .lane.sel { border-color:#4fbf8a; box-shadow:0 0 0 1px #4fbf8a33; }
+  .laneHead { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
+  .laneHead b { font-weight:500; color:var(--ink); flex:1; }
+  .lane.sel .laneHead b { color:#8ff0b8; }
+  .laneHead button { width:30px; height:24px; border-radius:7px; border:1px solid var(--field-line); background:#16161a; color:var(--ink);
+    cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+  .laneHead button svg { width:15px; height:15px; }
+  .laneHead button.muted { color:#ff9aa9; border-color:#5a2e38; }
+  .laneHead .bin { color:#ff9aa9; }
+  .lane canvas { width:100%; height:72px; display:block; cursor:ew-resize; touch-action:none; }
   .withBg { font-size:12px; color:#cfc5ef; }
   /* timing a voice recorded along its background: the music on top, the voice below on the same time line; the voice
      row is dragged left or right until its peaks sit on the music's beats (2026-10-18) */
@@ -270,7 +283,6 @@
   .syncFoot span { flex:1; }
   .syncFoot button { width:34px; height:30px; flex:none; border-radius:9px; border:1px solid var(--field-line); background:#16161a; color:var(--ink); cursor:pointer; font-size:12px; }
   /* paused: the whole take on the meter, a line to drag back to where to record again (what is after it goes) */
-  #voiceWave.cutting { cursor:ew-resize; touch-action:none; }
   .cutBar { display:flex; align-items:center; gap:8px; width:100%; font-size:13px; color:#ffd3dc; }
   .cutBar span { flex:1; text-align:center; }
   .cutBar button { height:32px; min-width:34px; border-radius:9px; border:1px solid var(--field-line); background:#16161a; color:var(--ink); cursor:pointer; font:500 12px "Bai Jamjuree", sans-serif; padding:0 10px; }
@@ -508,15 +520,16 @@
     </div>
     <div class="rec" id="voiceOn" hidden>
       <div class="live"><span class="tag" id="recTag"><i></i><span>กำลังอัด</span></span><span class="dots clock" id="voiceClock">0:00</span><span class="left" id="voiceLeft"></span></div>
-      <canvas id="voiceWave"></canvas>
+      <div class="lanes" id="lanes"></div>
+      <button type="button" class="addLayer" id="laneAdd" hidden>+ เสียงประสาน<small>แถวใหม่ใต้เสียงแรก · ตอนอัดได้ยินเสียงแรกไปด้วย</small></button>
       <div class="cutBar" id="cutBar" hidden>
-        <button type="button" id="cutBack" aria-label="ถอยจุดพากใหม่ 0.5 วิ">◀</button>
+        <button type="button" id="cutBack" aria-label="ถอยเส้น 0.5 วิ">◀</button>
         <span id="cutText"></span>
         <button type="button" class="hear" id="cutPlay" aria-label="ฟังจากเส้น เส้นเดินตามเสียง">▶ Play</button>
       </div>
       <div class="withBg" id="recBg" hidden></div>
       <div class="recBtns">
-        <button type="button" class="redo" id="voiceRedo" aria-label="ทิ้งแล้วอัดใหม่ตั้งแต่ต้น"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>เริ่มใหม่</button>
+        <button type="button" class="redo" id="voiceRedo" aria-label="ทิ้งแถวที่เลือกแล้วอัดใหม่"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>เริ่มใหม่</button>
         <button type="button" class="mic on" id="voicePause" aria-label="พักการอัด"><svg viewBox="0 0 24 24" fill="#ff8fa3" aria-hidden="true"><rect x="7" y="6" width="3.6" height="12" rx="1.2"/><rect x="13.4" y="6" width="3.6" height="12" rx="1.2"/></svg></button>
         <button type="button" class="redo done" id="voiceStop" aria-label="อัดเสร็จ"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>หยุด</button>
       </div>
@@ -533,8 +546,6 @@
         <div class="syncFoot"><button type="button" id="syncEarlier" aria-label="เลื่อนเสียงพูดไปทางซ้าย">◀</button><span>ลากแถวเสียงพูด (เขียว) ให้ยอดตรงกับเพลง (ม่วง) · กด ▶ ฟัง</span><button type="button" id="syncLater" aria-label="เลื่อนเสียงพูดไปทางขวา">▶</button></div>
       </div>
       <div class="pair editRow"><button type="button" id="voiceAgain">Edit</button><button type="button" class="bin" id="voiceDrop" aria-label="ลบเสียง"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/><path d="M10 11v5.5M14 11v5.5"/></svg></button></div>
-      <button type="button" class="addLayer" id="harmonyAdd">+ เสียงประสาน<small>อัดเสียงที่ 2 ทับ ฟังเสียงแรกไปด้วย</small></button>
-      <div class="pair editRow layer2" id="harmonyRow" hidden><button type="button" id="harmonyEdit">Edit เสียงประสาน <span id="harmonyLen"></span></button><button type="button" class="bin" id="harmonyDrop" aria-label="ลบเสียงประสาน"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/><path d="M10 11v5.5M14 11v5.5"/></svg></button></div>
       <dialog class="ask" id="dropAsk"><b id="dropTitle">ลบเสียงนี้ไหม?</b><span id="dropWords">ลบแล้วต้องอัดใหม่ตั้งแต่ต้น</span><div class="pair"><button type="button" id="dropNo">ยกเลิก</button><button type="button" class="danger" id="dropYes">ลบเลย</button></div></dialog>
       <div class="vlabel" id="fxLabel">เปลี่ยนเสียง <span class="opt">ไม่อยากใช้เสียงจริงก็ได้</span></div>
       <div class="vchips" id="fxChips"></div>
@@ -1003,7 +1014,7 @@ const VOICE_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio
 let voice2 = null, voice2Decoded = null;  // a harmony: a second voice recorded along the first ({ blob, type, ext, seconds, url, parts, delay })
 let voice = null;      // { blob, type, ext, seconds, url, withBg: the background it was recorded along ('' when none),
                        //   delay: seconds the recording runs behind that background (the PC's sound and mic latency) }
-let recording = null;  // { recorder, stream, analyser, chunks, cols, started, seconds, bg, bgGain, withBg }
+let ed = null;  // the editor: { lanes: [take, take?], sel, pos, bed, bgGain, withBg, open } (a take: one voice's recording)
 // ค่าตั้งเสียงกับรายการเสียงพื้นหลังมาจาก Supabase (setup-voice-fx.sql · ACEACE แก้ได้เอง ไม่ต้อง push) · ยังไม่มี = ใช้ config.js
 const page = { voice: true, voice_min: C.voiceMinAmount, voice_seconds: C.voiceSeconds, effects: Object.keys(VoiceFx.NAMES),
                video_min: C.videoMinAmount, video_seconds: C.videoSeconds,
@@ -1051,9 +1062,6 @@ function voiceChoices() {
   $("voiceWith").textContent = voice && bgPick ? (voice.withBg === bgPick ? `อัดพร้อม ${bgName(bgPick)} · ตรงจังหวะ` : `+ ${bgName(bgPick)}`) : "";
   const synced = !!(voice && voice.withBg && voice.withBg === bgPick);
   $("syncRow").hidden = !synced;
-  $("harmonyAdd").hidden = !voice || !!voice2;
-  $("harmonyRow").hidden = !voice2;
-  if (voice2) $("harmonyLen").textContent = clock(voice2.seconds);
   if (synced) drawSync();
 }
 let bgVolume = null;  // the donor's own loudness for the background, null = the streamer's (page.bg_volume)
@@ -1061,7 +1069,7 @@ const bgLoud = () => bgVolume ?? Math.round(page.bg_volume);
 let volTimer = 0;
 $("bgVol").oninput = () => {
   bgVolume = +$("bgVol").value; $("bgVolText").textContent = bgVolume + "%";
-  const live = (recording && recording.bgGain) || (bgTry && bgTry.gain);
+  const live = (ed && ed.open && ed.bgGain) || (bgTry && bgTry.gain);
   if (live) live.gain.value = bgVolume / 100;
   if (voice) { clearTimeout(volTimer); volTimer = setTimeout(() => { if (play) playPreview(); else voiceShape(); }, 300); }
 };
@@ -1083,9 +1091,9 @@ function bgBuffer(id) {
 function stopBgTry() { if (bgTry) { try { bgTry.stop(); } catch {} bgTry = null; } }
 async function tryBg() {
   stopBgTry();
-  if (!bgPick || voice || recording) return;
+  if (!bgPick || voice || (ed && ed.open)) return;
   const id = bgPick, buffer = await bgBuffer(id);
-  if (!buffer || voice || recording || bgPick !== id) return;
+  if (!buffer || voice || (ed && ed.open) || bgPick !== id) return;
   const a = ctx(), source = a.createBufferSource(), gain = a.createGain();
   source.buffer = buffer; gain.gain.value = bgLoud() / 100; source.connect(gain).connect(a.destination);
   source.start(0, 0, Math.min(6, buffer.duration)); source.gain = gain; bgTry = source;
@@ -1129,6 +1137,17 @@ function joinParts(buffer, parts, delay) {
   let at = 0; for (const s of pieces) { y.set(s, at); at += s.length; }
   return out;
 }
+// the kept parts of a recording, each where it was recorded on the voice's time (a harmony may come in later)
+function placeParts(buffer, parts, delay) {
+  const sr = buffer.sampleRate, x = buffer.getChannelData(0);
+  const length = Math.max(1, ...parts.map(p => Math.round((p.v + p.len) * sr)));
+  const out = ctx().createBuffer(1, length, sr), y = out.getChannelData(0);
+  for (const p of parts) {
+    const a = Math.round((p.r + delay) * sr), b = Math.min(x.length, Math.round((p.r + p.len + delay) * sr));
+    if (b > a) y.set(x.subarray(a, Math.min(b, a + length - Math.round(p.v * sr))), Math.round(p.v * sr));
+  }
+  return out;
+}
 // the voice as heard: its kept parts, the delay behind a background it was recorded along taken out
 function heardVoice(delay) {
   if (!voice.parts) return delay ? cutStart(voiceDecoded, delay) : voiceDecoded;
@@ -1136,7 +1155,7 @@ function heardVoice(delay) {
 }
 // the harmony as heard: its parts each as late as its own delay, on the first voice's time
 function heardHarmony() {
-  return voice2 && voice2Decoded ? joinParts(voice2Decoded, voice2.parts.map(([a, b]) => ({ r: a, len: b - a })), voice2.delay) : null;
+  return voice2 && voice2Decoded ? placeParts(voice2Decoded, voice2.parts.map(([a, b, at]) => ({ r: a, len: b - a, v: at })), voice2.delay) : null;
 }
 function heardAll(delay) {  // the first voice with the harmony laid over it
   const one = heardVoice(delay), two = heardHarmony();
@@ -1258,285 +1277,328 @@ function voiceShown() {
   const on = voiceAllowed() && extra === "voice";
   $("voiceCard").hidden = !on;
   $("voiceHint").textContent = voiceHintText();
-  if (!on && recording) stopVoice();
+  if (!on && ed && ed.open) stopVoice();
   if (!on) stopBgTry();
   return on;
 }
 function voiceView(which) { for (const v of ["Idle", "On", "Done"]) $("voice" + v).hidden = v !== which; }
-$("voiceStart").onclick = () => startTake(1);
-$("harmonyAdd").onclick = () => startTake(2);
-async function startTake(layer) {
-  stopBgTry(); stopPreview();
+// ---- the editor: each voice a take (its own recording, paused between goes), all on one time; the pink line is the
+// place: where recording goes on, where Play starts, walking while either does
+const LANE_NAMES = ["เสียง 1", "เสียงประสาน"], LANE_INK = ["#8ff0b8", "#c9b8ff"], LANE_DIM = ["#2f4a3c", "#3b3450"];
+const SPEAKER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>';
+const SPEAKER_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
+const BIN_ICON = $("voiceDrop").innerHTML;
+const TL_COLS = 150;
+const fileTime = take => take.file + (take.recording ? (performance.now() - take.segment) / 1000 : 0);
+const headOf = take => take.recording && take.cur ? take.cur.v + (fileTime(take) - take.cur.r) : null;
+const sel = () => ed && ed.lanes[ed.sel];
+const recordingNow = () => ed && ed.lanes.find(take => take.recording);
+// a new take for a lane: its own mic stream and recorder, not started until ● (or at once for the first)
+async function newTake(layer) {
   let stream;
-  // a background, or the first voice, playing aloud while recording: the browser takes it back out of the mic
+  // what plays aloud while recording (a background, the first voice) the browser takes back out of the mic
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: !!bgPick || layer === 2, noiseSuppression: false, autoGainControl: false } }); }
-  catch { return say("เปิดไมค์ไม่ได้ · กดอนุญาตให้ใช้ไมค์แล้วลองใหม่", "bad"); }
-  let under = null;
-  if (layer === 2) {  // the first voice as it is heard, on the background's time
-    if (!voice) return;
-    if (!voiceDecoded) voiceDecoded = await ctx().decodeAudioData(await voice.blob.arrayBuffer());
-    under = heardVoice(voice.withBg && voice.withBg === bgPick ? voice.delay : 0);
-    dropHarmony();
-  } else dropVoice();
+  catch { say("เปิดไมค์ไม่ได้ · กดอนุญาตให้ใช้ไมค์แล้วลองใหม่", "bad"); return null; }
   const a = ctx(), type = VOICE_TYPES.find(t => MediaRecorder.isTypeSupported(t)) || "";
   const recorder = new MediaRecorder(stream, type ? { mimeType: type } : {});
   const analyser = a.createAnalyser(); analyser.fftSize = 1024;
   a.createMediaStreamSource(stream).connect(analyser);
-  // file: seconds in the recording (pauses not recorded); kept: the voice as it will be, after any cut. parts: what of
-  // the file is kept, in order ({ r: where in the file, v: where in the voice, len }); the background follows `kept`
-  const rec = recording = { recorder, stream, analyser, chunks: [], levels: [], withBg: "", file: 0, segment: 0, paused: false,
-                            parts: [], cur: null, cut: 0, layer, under, underPeaks: under && peaks(under, 0, page.voice_seconds, TL_COLS) };
-  recorder.ondataavailable = e => { if (e.data.size) rec.chunks.push(e.data); };
-  recorder.onstop = () => { if (rec.again) startTake(rec.layer); };
-  // the background starts with the recording, so the voice lands on its beat
-  const bed = bgPick ? await bgBuffer(bgPick) : null;
-  if (recording !== rec) return;
-  if (bed) {
-    rec.bed = bed; rec.bgGain = a.createGain(); rec.bgGain.gain.value = bgLoud() / 100; rec.bgGain.connect(a.destination);
-    rec.withBg = bgPick;
-  }
-  $("recBg").hidden = !bed;
-  // the background starts when the recording really does; what is still behind: the time the background takes to
-  // reach the ears and the voice to reach the recording (the timing view after recording fixes the rest by eye)
+  // the time the sound takes to reach the ears and the voice to reach the recording: what it runs behind what it follows
   const track = stream.getAudioTracks()[0], heard = (a.baseLatency || 0) + (a.outputLatency || 0);
-  rec.delay = bed || under ? Math.max(0, Math.min(1.5, heard + ((track && track.getSettings().latency) || 0))) : 0;
+  const take = { layer, recorder, stream, analyser, chunks: [], levels: [], file: 0, segment: 0, recording: false, parts: [], cur: null,
+                 end: 0, muted: false, delay: Math.max(0, Math.min(1.5, heard + ((track && track.getSettings().latency) || 0))) };
+  recorder.ondataavailable = e => { if (e.data.size) take.chunks.push(e.data); };
   recorder.onstart = recorder.onresume = () => {
-    rec.segment = performance.now(); rec.cur = { r: rec.file, v: rec.cut };
-    // what was after the cut stays faint on the timeline until the new take passes over it
-    rec.ghost = rec.levels.slice(); rec.levels.length = Math.floor(rec.cut / LIVE_STEP);
-    bedFrom(rec, rec.cut);
+    const from = take.cur ? take.cur.v : ed.pos;  // where ● was pressed (the line may have moved a frame since)
+    take.segment = performance.now(); take.cur = { r: take.file, v: from };
+    take.ghost = take.levels.slice(); take.levels.length = Math.floor(from / LIVE_STEP);  // what is after the line fades as it is recorded over
+    hearFrom(from, take);
   };
-  rec.segment = performance.now(); rec.cur = { r: 0, v: 0 };
-  recorder.start(250);
-  voiceView("On"); say(""); recShown(rec); meter(rec);
+  return take;
 }
-function meter(rec) {
-  const data = new Float32Array(rec.analyser.fftSize), analyser = rec.analyser;
+// what the donor hears while recording or playing from `at`: the background and the lanes not muted (but `except`)
+let sounding = [];
+async function hearFrom(at, except = null, withLanes = null) {
+  hush();
+  const a = ctx(), sources = [];
+  if (ed.bed) {
+    const s = a.createBufferSource(); s.buffer = ed.bed; s.loop = true; s.connect(ed.bgGain); s.start(0, at % ed.bed.duration); sources.push(s);
+  }
+  for (const [take, buffer] of withLanes || ed.heard || []) {
+    if (take === except || take.muted || !buffer || at >= buffer.duration) continue;
+    const s = a.createBufferSource(); s.buffer = buffer; s.connect(a.destination); s.start(0, at); sources.push(s);
+  }
+  sounding = sources;
+  return sources;
+}
+function hush() { sounding.forEach(s => { try { s.stop(); } catch {} }); sounding = []; }
+// a lane as heard: its recording so far decoded, its parts placed on the voices' time
+async function laneSound(take) {
+  if (!take.chunks.length) return null;
+  if (take.recorder.state === "paused") {
+    take.recorder.requestData(); await new Promise(r => setTimeout(r, 150));
+  }
+  const decoded = await ctx().decodeAudioData(await new Blob(take.chunks, { type: take.recorder.mimeType }).arrayBuffer());
+  return take.parts.length ? placeParts(decoded, take.parts, take.layer === 1 && !ed.bed ? 0 : take.delay) : null;
+}
+async function allSounds() { return Promise.all(ed.lanes.map(async take => [take, await laneSound(take).catch(() => null)])); }
+// the parts of a take with what is after `at` dropped (recording goes on from there)
+function keptParts(take, at) {
+  const out = [];
+  for (const part of take.parts) {
+    if (part.v >= at) continue;
+    out.push({ ...part, len: Math.min(part.len, at - part.v) });
+  }
+  return out;
+}
+function closePart(take) {
+  if (!take.cur) return;
+  const now = fileTime(take), len = now - take.cur.r;
+  if (len > 0.02) take.parts.push({ r: take.cur.r, v: take.cur.v, len });
+  take.file = now; take.recording = false; take.cur = null;
+  take.end = take.parts.reduce((m, p) => Math.max(m, p.v + p.len), 0);
+}
+// ---- drawing: each lane on the same time, the line across all of them
+function laneRows() {
+  const box = $("lanes"); box.innerHTML = "";
+  ed.lanes.forEach((take, i) => {
+    const row = document.createElement("div"); row.className = "lane" + (i === ed.sel ? " sel" : "");
+    row.innerHTML = `<div class="laneHead"><b>${LANE_NAMES[take.layer - 1]}</b><span>${take.end ? clock(take.end) : ""}</span>`
+      + `<button type="button" class="mute${take.muted ? " muted" : ""}" aria-label="${take.muted ? "เปิดเสียงแถวนี้" : "ปิดเสียงแถวนี้ชั่วคราว"}">${take.muted ? SPEAKER_OFF : SPEAKER}</button>`
+      + (take.layer === 2 ? `<button type="button" class="bin" aria-label="ลบเสียงประสาน">${BIN_ICON}</button>` : "") + `</div><canvas></canvas>`;
+    take.canvas = row.querySelector("canvas");
+    row.querySelector(".mute").onclick = e => { e.stopPropagation(); take.muted = !take.muted; laneRows(); if (playingFrom) restartPlay(); };
+    if (take.layer === 2) row.querySelector(".bin").onclick = e => { e.stopPropagation(); if (!recordingNow()) askDrop(2); };
+    row.onpointerdown = e => {  // pick the lane; a press on the time moves the line
+      if (recordingNow()) return;
+      if (ed.sel !== i) { ed.sel = i; laneRows(); edShown(); }
+      if (e.target.tagName === "CANVAS") { lineDrag = true; e.target.setPointerCapture(e.pointerId); moveLine(e); }
+    };
+    row.onpointermove = e => { if (lineDrag) moveLine(e); };
+    row.onpointerup = row.onpointercancel = () => { lineDrag = false; };
+    box.appendChild(row);
+  });
+  drawLanes();
+}
+let lineDrag = false;
+function moveLine(e) {
+  const r = e.target.getBoundingClientRect();
+  stopPlay(); setLine((e.clientX - r.left) / r.width * page.voice_seconds);
+}
+function setLine(at) {
+  const end = Math.max(0, ...ed.lanes.map(take => take.end));
+  ed.pos = Math.round(Math.max(0, Math.min(end, at)) * 20) / 20;
+  drawLanes(); edShown();
+}
+function laneValues(take, liveAt = null, live = null) {
+  const span = page.voice_seconds / TL_COLS, ghost = take.recording ? take.ghost || [] : [];
+  const values = [...new Array(TL_COLS)].map((_, i) => {
+    const a = Math.floor(i * span / LIVE_STEP), b = Math.max(a + 1, Math.floor((i + 1) * span / LIVE_STEP));
+    let m = 0;
+    for (let k = a; k < b; k++) m = Math.max(m, k < take.levels.length ? take.levels[k] : ghost[k] || 0);
+    return m;
+  });
+  if (live !== null) { const head = Math.min(TL_COLS - 1, Math.floor(liveAt / span)); values[head] = Math.max(values[head] * .5, live); }
+  return values;
+}
+function drawLanes(live = null) {
+  if (!ed) return;
+  const at = ed.pos, span = page.voice_seconds / TL_COLS;
+  for (const take of ed.lanes) {
+    if (!take.canvas) continue;
+    const ink = take.muted ? "#55555c" : LANE_INK[take.layer - 1], dim = take.muted ? "#2a2a2f" : LANE_DIM[take.layer - 1];
+    // the lane being recorded: lit up to the head; the picked lane while paused: lit up to the line (after it goes)
+    const upTo = take.recording ? Math.floor(at / span) + 1 : take === sel() && !playingFrom ? Math.round(at / span) : TL_COLS;
+    bars(take.canvas, laneValues(take, at, take.recording ? live : null), upTo, ink, dim);
+    const { c, W, H, d } = fit(take.canvas), x = Math.min(W - 2 * d, at / page.voice_seconds * W);
+    c.fillStyle = "#ff8fa3"; c.fillRect(x, 0, 2 * d, H);
+    if (take === ed.lanes[0]) { c.beginPath(); c.moveTo(x - 5 * d, 0); c.lineTo(x + 7 * d, 0); c.lineTo(x + d, 8 * d); c.fill(); }
+  }
+}
+const PAUSE_ICON = $("voicePause").innerHTML;
+function edShown() {
+  const take = sel(), live = recordingNow(), paused = !live;
+  $("recTag").classList.toggle("paused", paused);
+  $("recTag").lastChild.textContent = (paused ? "พักอยู่" : "กำลังอัด") + (take && take.layer === 2 ? " · เสียงประสาน" : "");
+  $("voicePause").classList.toggle("paused", paused);
+  $("voicePause").setAttribute("aria-label", paused ? "อัดจากเส้น" : "พักการอัด");
+  $("voicePause").innerHTML = paused ? '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="#ff6b86"/></svg>' : PAUSE_ICON;
+  if (ed.bed) $("recBg").textContent = paused ? `♪ ${bgName(ed.withBg)} พักอยู่ · เล่นต่อจากเส้น` : `♪ ${bgName(ed.withBg)} กำลังเล่น · พากไปพร้อมเพลงได้เลย`;
+  $("recBg").hidden = !ed.bed;
+  $("cutBar").hidden = !paused;
+  $("laneAdd").hidden = !paused || ed.lanes.length > 1 || !ed.lanes[0].end;
+  const replaced = take && ed.pos < take.end - 0.04;
+  $("cutText").textContent = `${LANE_NAMES[take.layer - 1]} · ` + (replaced ? `ทับตั้งแต่ ${clock(ed.pos)}` : `อัดจาก ${clock(ed.pos)}`);
+  $("voiceClock").textContent = clock(ed.pos);
+  $("voiceLeft").textContent = `เหลือ ${Math.max(0, Math.ceil(page.voice_seconds - ed.pos))} วิ`;
+  $("recHint").textContent = paused ? "แตะแถวเพื่อเลือก · ▶ ฟังหาจุด หรือลากเส้น · ● อัดแถวที่เลือกจากเส้น"
+    : "พูดพลาด? กดพัก แล้ว ▶ ฟังหาจุด · เสร็จแล้วกด หยุด";
+}
+// the meter: the lane being recorded follows the mouth every frame, the line walks with it
+function meter() {
+  const data = new Float32Array(1024);
   (function frame() {
-    if (recording !== rec) return;
-    const t = keptTime(rec), left = page.voice_seconds - t;
-    if (left <= 0) return stopVoice();
-    $("voiceClock").textContent = clock(rec.paused ? rec.cut : t);
-    $("voiceLeft").textContent = `เหลือ ${Math.ceil(page.voice_seconds - (rec.paused ? rec.cut : t))} วิ`;
-    if (!rec.paused) {
-      analyser.getFloatTimeDomainData(data);
-      let sum = 0; for (const x of data) sum += x * x;
-      const level = Math.min(1, Math.pow(Math.sqrt(sum / data.length) * 5, .7));
-      // the step being recorded follows the mouth every frame; a finished one keeps its loudest
-      const step = Math.floor(t / LIVE_STEP);
-      for (let i = rec.levels.length; i <= step; i++) rec.levels[i] = 0;
-      rec.levels[step] = Math.max(rec.levels[step] * .6, level);
-      drawTimeline(rec, t, level);
+    if (!ed || !ed.open) return;
+    const take = recordingNow();
+    if (take) {
+      const head = headOf(take);
+      if (head >= page.voice_seconds) { pauseTake(take); edShown(); }
+      else {
+        take.analyser.getFloatTimeDomainData(data);
+        let sum = 0; for (const x of data) sum += x * x;
+        const level = Math.min(1, Math.pow(Math.sqrt(sum / data.length) * 5, .7)), step = Math.floor(head / LIVE_STEP);
+        for (let i = take.levels.length; i <= step; i++) take.levels[i] = 0;
+        take.levels[step] = Math.max(take.levels[step] * .6, level);
+        ed.pos = head; drawLanes(level);
+        $("voiceClock").textContent = clock(head);
+        $("voiceLeft").textContent = `เหลือ ${Math.max(0, Math.ceil(page.voice_seconds - head))} วิ`;
+      }
     }
     requestAnimationFrame(frame);
   })();
 }
-// seconds in the file (paused time left out), and of the voice as kept
-const fileTime = rec => rec.file + (rec.paused ? 0 : (performance.now() - rec.segment) / 1000);
-const keptTime = rec => rec.paused || !rec.cur ? rec.end || 0 : rec.cur.v + (fileTime(rec) - rec.cur.r);
-// the background from `offset` seconds in: where the kept voice is (after a cut, back there with it)
-function bedFrom(rec, offset) {
-  if (recording !== rec) return;
-  const a = ctx();
-  if (rec.bed) {
-    const source = a.createBufferSource();
-    source.buffer = rec.bed; source.loop = true; source.connect(rec.bgGain);
-    source.start(0, offset % rec.bed.duration);
-    rec.bg = source;
-  }
-  if (rec.under && offset < rec.under.duration) {
-    const source = a.createBufferSource(); source.buffer = rec.under; source.connect(a.destination);
-    source.start(0, offset); rec.underSrc = source;
-  }
+function pauseTake(take) {
+  if (!take.recording) return;
+  closePart(take);
+  if (take.recorder.state === "recording") take.recorder.pause();
+  hush();
 }
-function bedStop(rec) {
-  for (const key of ["bg", "underSrc"]) if (rec[key]) { try { rec[key].stop(); } catch {} rec[key] = null; }
+// ● : record the picked lane from the line, hearing the background and the other lanes there
+async function recordFrom() {
+  const take = sel(); if (!take || recordingNow()) return;
+  stopPlay();
+  if (take.layer === 1) ed.pos = Math.min(ed.pos, take.end);  // the first voice runs on without a gap
+  $("voicePause").disabled = true;
+  ed.heard = await allSounds();
+  $("voicePause").disabled = false;
+  if (!ed || sel() !== take) return;
+  take.parts = keptParts(take, ed.pos);
+  take.stream.getTracks().forEach(t => { t.enabled = true; });
+  take.recording = true; take.segment = performance.now(); take.cur = { r: take.file, v: ed.pos };
+  if (take.recorder.state === "paused") take.recorder.resume();  // onresume starts what is heard, from the line
+  else if (take.recorder.state === "inactive") take.recorder.start(250);
+  laneRows(); edShown();
 }
-// the part being recorded joins the kept ones
-function closePart(rec) {
-  if (!rec.cur) return;
-  const now = fileTime(rec), len = now - rec.cur.r;
-  if (len > 0.02) rec.parts.push({ r: rec.cur.r, v: rec.cur.v, len });
-  rec.file = now; rec.end = rec.cur.v + Math.max(0, len); rec.cur = null;
-}
-// a cut at `at` seconds of the voice: what is after it is dropped when recording goes on
-function cutAt(rec, at) {
-  rec.cut = Math.round(Math.max(0, Math.min(rec.end, at)) * 20) / 20;
-  drawTake(rec);
-}
-function keptParts(rec) {  // the parts as they stand with the cut applied
-  const out = [];
-  for (const part of rec.parts) {
-    if (part.v >= rec.cut) break;
-    out.push({ ...part, len: Math.min(part.len, rec.cut - part.v) });
-  }
-  return out;
-}
-// the timeline: the whole time a voice may take, recorded so far in green, the pink line where the voice is now (the
-// head while recording, the line to record again from while paused); what is after it is faint
-const TL_COLS = 150;
-function drawTimeline(rec, at, live = null) {
-  const span = page.voice_seconds / TL_COLS, from = rec.paused ? rec.levels : rec.levels, ghost = rec.paused ? [] : rec.ghost || [];
-  const values = [...new Array(TL_COLS)].map((_, i) => {
-    const a = Math.floor(i * span / LIVE_STEP), b = Math.max(a + 1, Math.floor((i + 1) * span / LIVE_STEP));
-    let m = 0;
-    for (let k = a; k < b; k++) m = Math.max(m, k < from.length ? from[k] : ghost[k] || 0);
-    return m;
-  });
-  const head = Math.min(TL_COLS - 1, Math.floor(at / span));
-  if (live !== null) values[head] = Math.max(values[head] * .5, live);  // the bar now: the mouth, this frame
-  if (rec.underPeaks) bars($("voiceWave"), rec.underPeaks, TL_COLS, "rgba(185,166,255,.28)", "");
-  bars($("voiceWave"), values, rec.paused ? Math.round(at / span) : head + 1, "#8ff0b8", "#2f4a3c", !rec.underPeaks);
-  const { c, W, H, d } = fit($("voiceWave")), x = Math.min(W - 2 * d, at / page.voice_seconds * W);
-  c.fillStyle = "#ff8fa3"; c.fillRect(x, 0, 2 * d, H);
-  c.beginPath(); c.moveTo(x - 5 * d, 0); c.lineTo(x + 7 * d, 0); c.lineTo(x + d, 8 * d); c.fill();
-}
-const drawTake = rec => {
-  drawTimeline(rec, rec.cut);
-  $("cutText").textContent = rec.cut < rec.end - 0.04 ? `ตัดหลัง ${clock(rec.cut)} · อัดต่อจากเส้น` : `อัดต่อจาก ${clock(rec.cut)}`;
-};
-function recShown(rec) {
-  $("recTag").classList.toggle("paused", rec.paused);
-  $("recTag").lastChild.textContent = (rec.paused ? "พักอยู่" : "กำลังอัด") + (rec.layer === 2 ? " · เสียงประสาน" : "");
-  $("voicePause").classList.toggle("paused", rec.paused);
-  if (rec.bed) $("recBg").textContent = rec.paused ? `♪ ${bgName(rec.withBg)} พักอยู่ · อัดต่อแล้วเล่นต่อจากเส้น` : `♪ ${bgName(rec.withBg)} กำลังเล่น · พากไปพร้อมเพลงได้เลย`;
-  $("voicePause").setAttribute("aria-label", rec.paused ? "อัดต่อจากเส้น" : "พักการอัด");
-  $("voicePause").innerHTML = rec.paused ? '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="#ff6b86"/></svg>' : PAUSE_ICON;
-  $("cutBar").hidden = !rec.paused;
-  $("voiceWave").classList.toggle("cutting", rec.paused);
-  $("recHint").textContent = rec.paused ? "▶ ฟังแล้วหยุดตรงที่พลาด หรือลากเส้น · ● อัดต่อจากเส้น"
-    : "พูดพลาด? กดพัก แล้ว ▶ ฟังหาจุด · เสร็จแล้วกด หยุด";
-  if (rec.paused) drawTake(rec);
-}
-const PAUSE_ICON = $("voicePause").innerHTML;
-// the middle button: pause, and again to go on from the cut line (the background too)
 $("voicePause").onclick = () => {
-  const rec = recording;
-  if (!rec || rec.recorder.state === "inactive") return;
-  if (!rec.paused) {
-    closePart(rec); rec.paused = true; rec.cut = rec.end;
-    if (rec.recorder.state === "recording") rec.recorder.pause();
-    bedStop(rec); stopHear();
-  } else {
-    stopHear();
-    rec.parts = keptParts(rec); rec.paused = false;
-    rec.segment = performance.now(); rec.cur = { r: rec.file, v: rec.cut };
-    rec.stream.getTracks().forEach(t => { t.enabled = true; });
-    if (rec.recorder.state === "paused") rec.recorder.resume();  // onresume starts the background at the cut
-  }
-  recShown(rec);
+  const take = recordingNow();
+  if (take) { pauseTake(take); laneRows(); edShown(); } else recordFrom();
 };
-// dragging the meter while paused moves the cut line
-let cutDrag = false;
-$("voiceWave").onpointerdown = e => {
-  const rec = recording; if (!rec || !rec.paused) return;
-  cutDrag = true; e.currentTarget.setPointerCapture(e.pointerId); $("voiceWave").onpointermove(e);
-};
-$("voiceWave").onpointermove = e => {
-  const rec = recording; if (!cutDrag || !rec || !rec.paused) return;
-  const r = e.currentTarget.getBoundingClientRect();
-  stopHear(); cutAt(rec, (e.clientX - r.left) / r.width * page.voice_seconds);
-};
-$("voiceWave").onpointerup = $("voiceWave").onpointercancel = () => { cutDrag = false; };
-$("cutBack").onclick = () => { if (recording && recording.paused) { stopHear(); cutAt(recording, recording.cut - 0.5); } };
-
-// play from the line: the whole take (also what is after it) with the background, the line walking with the sound;
-// stopped, the line stays there, so a slip is found by ear and recorded again from where it was heard
-let hearing = null;
-function stopHear() {
-  if (hearing) { const h = hearing; hearing = null; h.sources.forEach(s => { try { s.stop(); } catch {} }); }
-  $("cutPlay").textContent = "▶ Play";
+// Play: every lane not muted and the background, from the line, the line walking; stopped, it stays
+let playingFrom = null;
+function stopPlay() {
+  if (!playingFrom) return;
+  playingFrom = null; hush(); $("cutPlay").textContent = "▶ Play"; drawLanes();
 }
-$("cutPlay").onclick = async () => {
-  const rec = recording; if (!rec || !rec.paused) return;
-  if (hearing) return stopHear();
-  $("cutPlay").textContent = "…";
-  try {
-    if (rec.recorder.state === "paused") { rec.recorder.requestData(); await new Promise(r => setTimeout(r, 150)); }
-    const a = ctx(), take = await a.decodeAudioData(await new Blob(rec.chunks, { type: rec.recorder.mimeType }).arrayBuffer());
-    const whole = joinParts(take, rec.parts, rec.delay), from = rec.cut >= rec.end - 0.05 ? 0 : rec.cut;
-    if (recording !== rec || !rec.paused || whole.duration - from < 0.1) return stopHear();
-    const voiceSrc = a.createBufferSource(); voiceSrc.buffer = whole; voiceSrc.connect(a.destination);
-    const sources = [voiceSrc];
-    if (rec.bed) { const s = a.createBufferSource(); s.buffer = rec.bed; s.loop = true; s.connect(rec.bgGain); sources.push(s); s.start(0, from % rec.bed.duration); }
-    if (rec.under && from < rec.under.duration) { const s = a.createBufferSource(); s.buffer = rec.under; s.connect(a.destination); sources.push(s); s.start(0, from); }
-    voiceSrc.start(0, from);
-    const mine = hearing = { sources }, started = a.currentTime - from;
-    voiceSrc.onended = () => { if (hearing === mine) stopHear(); };
-    $("cutPlay").textContent = "■ Stop";
-    (function walk() {
-      if (hearing !== mine || recording !== rec) return;
-      rec.cut = Math.min(rec.end, Math.round((a.currentTime - started) * 20) / 20);
-      drawTake(rec); $("voiceClock").textContent = clock(rec.cut);
-      requestAnimationFrame(walk);
-    })();
-  } catch { stopHear(); say("ฟังไม่ได้ตอนนี้ ลองอัดต่อหรือกดหยุดแล้วฟัง", "bad"); }
-};
-// stop: the take is done for now but kept paused (the mic muted), so Edit can take it up again; what is after the line
-// (when stopped while paused) is left out
-const takes = { 1: null, 2: null };  // each voice's take kept paused for Edit
-function stopVoice() {
-  const rec = recording;
-  if (!rec) return;
-  if (!rec.paused) {
-    closePart(rec); rec.paused = true; rec.cut = rec.end;
-    if (rec.recorder.state === "recording") rec.recorder.pause();
-  }
-  rec.parts = keptParts(rec); rec.end = rec.cut;
-  rec.levels.length = Math.min(rec.levels.length, Math.ceil(rec.cut / LIVE_STEP));
-  rec.seconds = Math.min(page.voice_seconds, rec.parts.reduce((s, p) => s + p.len, 0));
-  recording = null; stopHear(); bedStop(rec);
-  rec.stream.getTracks().forEach(t => { t.enabled = false; });
-  takes[rec.layer] = rec;
-  rec.recorder.addEventListener("dataavailable", () => finishVoice(rec), { once: true });
-  rec.recorder.requestData();  // what was recorded so far, then the voice is made of it
+async function startPlay(from) {
+  stopPlay();
+  const mine = playingFrom = { from }, sounds = await allSounds();
+  if (playingFrom !== mine) return;
+  const end = Math.max(0, ...ed.lanes.map(take => take.end));
+  if (end - from < 0.1) { stopPlay(); return; }
+  const a = ctx(), started = a.currentTime - from;
+  await hearFrom(from, null, sounds); mine.started = started;
+  $("cutPlay").textContent = "■ Stop";
+  (function walk() {
+    if (playingFrom !== mine || !ed) return;
+    const t = a.currentTime - started;
+    if (t >= end) { ed.pos = end; stopPlay(); edShown(); return; }
+    ed.pos = Math.round(t * 20) / 20; drawLanes(); $("voiceClock").textContent = clock(ed.pos);
+    requestAnimationFrame(walk);
+  })();
 }
-function endTake(rec) {  // the take is over for good: the recorder stops and the mic is let go
-  if (!rec) return;
-  bedStop(rec);
-  try { if (rec.recorder.state !== "inactive") rec.recorder.stop(); } catch {}
-  rec.stream.getTracks().forEach(t => t.stop());
-}
-$("voiceStop").onclick = stopVoice;
-$("voiceRedo").onclick = () => {
-  const rec = recording; if (!rec) return;
-  rec.again = true; recording = null; stopHear(); endTake(rec);  // onstop starts a new take
+const restartPlay = () => { if (playingFrom) startPlay(ed.pos); };
+$("cutPlay").onclick = () => {
+  if (!ed || recordingNow()) return;
+  if (playingFrom) { stopPlay(); edShown(); return; }
+  const end = Math.max(0, ...ed.lanes.map(take => take.end));
+  startPlay(ed.pos >= end - 0.05 ? 0 : ed.pos);
 };
-function finishVoice(rec) {
-  if (takes[rec.layer] !== rec) return;  // dropped or taken up again meanwhile
-  const seconds = rec.seconds ?? 0;
-  const type = (rec.recorder.mimeType || (rec.chunks[0] && rec.chunks[0].type) || "audio/webm").split(";")[0];
-  const blob = new Blob(rec.chunks, { type });
-  const back = () => { takes[rec.layer] = null; endTake(rec); voiceView(rec.layer === 2 && voice ? "Done" : "Idle"); if (rec.layer === 2) voiceChoices(); };
-  if (!blob.size || seconds < .5) { back(); return say("เสียงสั้นเกินไป ลองอัดใหม่", "bad"); }
-  if (blob.size > 2000000) { back(); return say("ไฟล์เสียงใหญ่เกิน ลองอัดให้สั้นลง", "bad"); }
-  const ext = /mp4|aac|m4a/.test(type) ? "m4a" : /ogg/.test(type) ? "ogg" : "webm";
+$("cutBack").onclick = () => { if (ed && !recordingNow()) { stopPlay(); setLine(ed.pos - 0.5); } };
+// ---- start, add a harmony, start a lane over, stop
+$("voiceStart").onclick = async () => {
+  stopBgTry(); stopPreview();
+  const take = await newTake(1);
+  if (!take) return;
+  dropVoice();
+  ed = { lanes: [take], sel: 0, pos: 0, open: true, bed: null, withBg: "", heard: [] };
+  ed.bgGain = ctx().createGain(); ed.bgGain.gain.value = bgLoud() / 100; ed.bgGain.connect(ctx().destination);
+  if (bgPick) { ed.bed = await bgBuffer(bgPick); ed.withBg = ed.bed ? bgPick : ""; }
+  voiceView("On"); say(""); laneRows();
+  take.recording = true; take.recorder.start(250);  // onstart: the line at 0, the background from there
+  edShown(); meter();
+};
+$("laneAdd").onclick = async () => {
+  if (!ed || recordingNow() || ed.lanes.length > 1) return;
+  stopPlay();
+  const take = await newTake(2);
+  if (!take || !ed) return;
+  ed.lanes.push(take); ed.sel = 1;
+  laneRows(); edShown();
+  say("แถวเสียงประสานพร้อมแล้ว · เลื่อนเส้นไปจุดที่จะเริ่ม แล้วแตะ ●");
+};
+$("voiceRedo").onclick = async () => {  // the picked lane thrown away and recorded again from its start
+  if (!ed) return;
+  const old = sel(); stopPlay();
+  if (old.recording) pauseTake(old);
+  const take = await newTake(old.layer);
+  if (!take) return;
+  endTake(old);
+  ed.lanes[ed.sel] = take;
+  ed.pos = old.layer === 1 ? 0 : (old.parts[0] ? old.parts[0].v : ed.pos);
+  laneRows(); edShown(); recordFrom();
+};
+function endTake(take) {  // a take over for good: its recorder stops and its mic is let go
+  if (!take) return;
+  try { if (take.recorder.state !== "inactive") take.recorder.stop(); } catch {}
+  take.stream.getTracks().forEach(t => t.stop());
+}
+// stop: every lane kept paused (mics muted) for Edit, and the voices made of them
+async function stopVoice() {
+  if (!ed || !ed.open) return;
+  const take = recordingNow(); if (take) pauseTake(take);
+  stopPlay(); hush(); ed.open = false;
+  for (const lane of ed.lanes) lane.stream.getTracks().forEach(t => { t.enabled = false; });
+  const mine = ed;
+  await Promise.all(ed.lanes.map(lane => lane.recorder.state === "paused" ? new Promise(r => {
+    lane.recorder.addEventListener("dataavailable", r, { once: true }); lane.recorder.requestData();
+  }) : null));
+  if (ed !== mine) return;
+  finishVoices();
+}
+function finishVoices() {
+  const [one, two] = ed.lanes, type = (one.recorder.mimeType || "audio/webm").split(";")[0];
+  const ext = /mp4|aac|m4a/.test(type) ? "m4a" : /ogg/.test(type) ? "ogg" : "webm", r2 = x => Math.round(x * 100) / 100;
+  const blobOf = take => new Blob(take.chunks, { type });
+  const seconds = Math.min(page.voice_seconds, one.parts.reduce((s, p) => s + p.len, 0));
+  const blob = blobOf(one);
+  if (!blob.size || seconds < .5) { dropVoice(); return say("เสียงสั้นเกินไป ลองอัดใหม่", "bad"); }
+  if (blob.size > 2000000) { dropVoice(); return say("ไฟล์เสียงใหญ่เกิน ลองอัดให้สั้นลง", "bad"); }
   // one part from the file's start: nothing was cut, nothing to send; else what of the file is kept, in order
-  const parts = rec.parts.length === 1 && rec.parts[0].r < 0.01 ? null : rec.parts.map(p => [Math.round(p.r * 100) / 100, Math.round((p.r + p.len) * 100) / 100]);
-  if (rec.layer === 2) {  // the harmony keeps every part (its own delay is laid into them when sent)
-    voice2 = { blob, type, ext, seconds, url: URL.createObjectURL(blob), delay: rec.delay || 0,
-               parts: rec.parts.map(p => [Math.round(p.r * 100) / 100, Math.round((p.r + p.len) * 100) / 100]) };
-    voice2Decoded = null; shape = null;
-    voiceView("Done"); voiceChoices();
-    voiceShape().catch(() => say("เล่นตัวอย่างไม่ได้ ลองอัดใหม่อีกครั้ง", "bad"));
-    return;
+  const parts = one.parts.length === 1 && one.parts[0].r < 0.01 ? null : one.parts.map(p => [r2(p.r), r2(p.r + p.len)]);
+  voice = { blob, type, ext, seconds, url: URL.createObjectURL(blob), withBg: ed.withBg, delay: ed.bed ? Math.round(one.delay * 20) / 20 : 0, parts };
+  voiceDecoded = null; voice2 = null; voice2Decoded = null;
+  if (two && two.parts.length) {
+    const blob2 = blobOf(two);
+    if (blob2.size && blob2.size <= 2000000)  // the harmony: every kept stretch with where it goes on the voice's time
+      voice2 = { blob: blob2, type, ext, seconds: two.end, url: URL.createObjectURL(blob2), delay: two.delay,
+                 parts: two.parts.map(p => [r2(p.r), r2(p.r + p.len), r2(p.v)]) };
   }
-  voice = { blob, type, ext, seconds, url: URL.createObjectURL(blob), withBg: rec.withBg, delay: Math.round((rec.delay || 0) * 20) / 20, parts };
-  voiceDecoded = null; shape = null;
+  shape = null;
   voiceView("Done"); voiceChoices();
   voiceShape().catch(() => say("เล่นตัวอย่างไม่ได้ ลองอัดใหม่อีกครั้ง", "bad"));
 }
-function dropHarmony() {
-  stopPreview();
-  if (takes[2]) { endTake(takes[2]); takes[2] = null; }
+$("voiceStop").onclick = stopVoice;
+function dropHarmony() {  // the harmony lane gone (in the editor, or what was made of it)
+  if (ed && ed.lanes[1]) { endTake(ed.lanes[1]); ed.lanes.length = 1; ed.sel = 0; }
   if (voice2) URL.revokeObjectURL(voice2.url);
-  voice2 = null; voice2Decoded = null; shape = null;
+  voice2 = null; voice2Decoded = null;
 }
 function dropVoice() {
-  stopPreview(); dropHarmony();
-  if (takes[1]) { endTake(takes[1]); takes[1] = null; }
+  stopPreview(); stopPlay(); hush();
+  if (ed) { ed.lanes.forEach(endTake); ed = null; }
   if (voice) URL.revokeObjectURL(voice.url);
-  voice = null; voiceDecoded = null; shape = null; voiceView("Idle"); voiceChoices();
+  if (voice2) URL.revokeObjectURL(voice2.url);
+  voice = null; voiceDecoded = null; voice2 = null; voice2Decoded = null; shape = null; voiceView("Idle"); voiceChoices();
 }
 $("voicePlay").onclick = () => play ? stopPreview() : playPreview();
 $("voiceShape").onclick = e => {  // a tap on the graph jumps there
@@ -1546,32 +1608,28 @@ $("voiceShape").onclick = e => {  // a tap on the graph jumps there
 };
 addEventListener("resize", () => { if (!play) drawShape(); });
 loadPage();
-// Edit: back to the paused take, its timeline and line, to play, cut and record on in the same file
-function editTake(layer) {
-  const rec = takes[layer];
-  if (!rec) return startTake(layer);
-  stopPreview(); takes[layer] = null;
-  if (layer === 2) { if (voice2) URL.revokeObjectURL(voice2.url); voice2 = null; voice2Decoded = null; }
-  else { if (voice) URL.revokeObjectURL(voice.url); voice = null; voiceDecoded = null; }
-  shape = null;
-  recording = rec; rec.paused = true; rec.cut = rec.end;
-  voiceView("On"); say(""); recShown(rec); meter(rec);
-}
-$("voiceAgain").onclick = () => editTake(1);
-$("harmonyEdit").onclick = () => editTake(2);
-let dropping = 1;  // which voice the bin asked about
+// Edit: back to the editor, every lane as it was, to play, cut, add a harmony and record on in the same files
+$("voiceAgain").onclick = () => {
+  if (!ed) return $("voiceStart").click();
+  stopPreview();
+  if (voice) URL.revokeObjectURL(voice.url);
+  if (voice2) URL.revokeObjectURL(voice2.url);
+  voice = null; voiceDecoded = null; voice2 = null; voice2Decoded = null; shape = null;
+  ed.open = true; ed.sel = 0; ed.pos = ed.lanes[0].end;
+  voiceView("On"); say(""); laneRows(); edShown(); meter();
+};
+let dropping = 1;  // which the bin asked about: 1 everything, 2 the harmony lane
 function askDrop(layer) {
-  stopPreview(); dropping = layer;
+  stopPreview(); stopPlay(); dropping = layer;
   $("dropTitle").textContent = layer === 2 ? "ลบเสียงประสานไหม?" : voice2 ? "ลบทั้งสองเสียงไหม?" : "ลบเสียงนี้ไหม?";
   $("dropWords").textContent = layer === 2 ? "เสียงแรกยังอยู่" : "ลบแล้วต้องอัดใหม่ตั้งแต่ต้น";
   $("dropAsk").showModal();
 }
 $("voiceDrop").onclick = () => askDrop(1);
-$("harmonyDrop").onclick = () => askDrop(2);
 $("dropNo").onclick = () => $("dropAsk").close();
 $("dropYes").onclick = () => {
   $("dropAsk").close();
-  if (dropping === 2) { dropHarmony(); voiceChoices(); voiceShape(); } else dropVoice();
+  if (dropping === 2) { dropHarmony(); if (ed && ed.open) { laneRows(); edShown(); } } else dropVoice();
 };
 const randomId = () => [...crypto.getRandomValues(new Uint8Array(12))].map(b => b.toString(16).padStart(2, "0")).join("");
 
@@ -1872,7 +1930,8 @@ async function sendNow() {
   if (voicePath && voice.parts) mixed.voice_parts = voice.parts;  // what of the file is kept after cuts (setup-voice-mix.sql)
   if (harmonyPath) {  // the app moves both by the first voice's delay: the harmony's own is laid into its parts
     const shift = voice2.delay - (mixed.voice_bg_delay || 0);
-    const parts2 = voice2.parts.map(([a, b]) => [Math.round(Math.max(0, a + shift) * 100) / 100, Math.round(Math.max(0, b + shift) * 100) / 100]).filter(([a, b]) => b > a);
+    const r2 = x => Math.round(x * 100) / 100;
+    const parts2 = voice2.parts.map(([a, b, at]) => [r2(Math.max(0, a + shift)), r2(b + shift), r2(at + Math.max(0, -(a + shift)))]).filter(([a, b]) => b > a);
     if (parts2.length) { mixed.voice_path2 = harmonyPath; mixed.voice_parts2 = parts2; }
   }
   let { error } = await sb.from("slips").insert(withWho(voicePath ? { ...row, voice_path: voicePath, ...picks, ...mixed } : row));
