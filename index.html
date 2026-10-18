@@ -335,6 +335,10 @@
   .vchips button.on small { color:#c9b8ff; }
   #fxChips button.on { border-color:#4fbf8a; background:#132a1f; }  /* the effect picked: green like the play button */
   #fxChips button.on small { color:#8ff0b8; }
+  #fxFor { font-weight:500; color:#8ff0b8; }
+  /* the harmony's effect: violet like its lane */
+  #fxChips.l2 button.on { border-color:#9d86e8; background:#1d1730; }
+  #fxChips.l2 button.on small, #fxFor.l2 { color:#c9b8ff; }
   /* ให้ ACE เรียกว่าอะไร: ชื่อเบียว / Twitch / TikTok / ไม่บอกชื่อ */
   .who { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:6px; }
   .who button { min-height:54px; border-radius:12px; border:1px solid var(--field-line); background:var(--field); color:var(--ink);
@@ -540,6 +544,8 @@
         <button type="button" class="mic on" id="voicePause" aria-label="พักการอัด"><svg viewBox="0 0 24 24" fill="#ff8fa3" aria-hidden="true"><rect x="7" y="6" width="3.6" height="12" rx="1.2"/><rect x="13.4" y="6" width="3.6" height="12" rx="1.2"/></svg></button>
         <button type="button" class="redo done" id="voiceStop" aria-label="อัดเสร็จ"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>หยุด</button>
       </div>
+      <div class="vlabel" id="fxLabel">เปลี่ยนเสียง · <b id="fxFor">เสียง 1</b> <span class="opt">แต่ละแถวเลือกเองได้</span></div>
+      <div class="vchips" id="fxChips"></div>
       <div class="hint" id="recHint"></div>
     </div>
     <div class="rec" id="voiceDone" hidden>
@@ -554,9 +560,6 @@
       </div>
       <div class="pair editRow"><button type="button" id="voiceAgain">Edit</button><button type="button" class="bin" id="voiceDrop" aria-label="ลบเสียง"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/><path d="M10 11v5.5M14 11v5.5"/></svg></button></div>
       <dialog class="ask" id="dropAsk"><b id="dropTitle">ลบเสียงนี้ไหม?</b><span id="dropWords">ลบแล้วต้องอัดใหม่ตั้งแต่ต้น</span><div class="pair"><button type="button" id="dropNo">ยกเลิก</button><button type="button" class="danger" id="dropYes">ลบเลย</button></div></dialog>
-      <div class="vlabel" id="fxLabel">เปลี่ยนเสียง <span class="opt">ไม่อยากใช้เสียงจริงก็ได้</span></div>
-      <div class="vchips" id="fxChips"></div>
-      <div class="hint">กดเลือกแล้วได้ยินตัวอย่าง · กด ▶ ฟังอีกรอบ</div>
     </div>
     <div class="warn">เสียงนี้จะออกในสตรีม · ด่าได้แต่อย่าแรง</div>
   </section>
@@ -1034,6 +1037,7 @@ let ed = null;  // the editor: { lanes: [take, take?], sel, pos, bed, bgGain, wi
 const page = { voice: true, voice_min: C.voiceMinAmount, voice_seconds: C.voiceSeconds, effects: Object.keys(VoiceFx.NAMES),
                video_min: C.videoMinAmount, video_seconds: C.videoSeconds,
                voice_volume: 80, bg_volume: 40, bg_lead: 1, bg_duck: 30 };
+let fxPick2 = "";  // the harmony's own effect (the chips work on the lane picked in the editor)
 let bgs = [], fxPick = "", bgPick = "", audioCtx = null, play = null, voiceDecoded = null, shape = null, bgTry = null;
 const bgCache = {};
 async function loadPage() {
@@ -1047,6 +1051,7 @@ async function loadPage() {
   } catch {}
   page.effects = (Array.isArray(page.effects) ? page.effects : []).filter(e => e in VoiceFx.NAMES);
   if (!page.effects.includes(fxPick)) fxPick = page.effects[0] || "";
+  if (!page.effects.includes(fxPick2)) fxPick2 = page.effects[0] || "";
   if (!bgs.some(b => b.id === bgPick)) bgPick = "";
   voiceChoices(); drawQr();
 }
@@ -1057,18 +1062,22 @@ function voiceHintText() {
 }
 // the background is picked before or after recording, at the donor's own loudness (2026-10-18)
 function voiceChoices() {
-  const fill = (box, items, picked, pick) => {
+  const fill = (box, items, picked, pick, after = () => voice ? playPreview() : tryBg()) => {
     box.innerHTML = "";
     for (const [key, name, hint] of items) {
       const b = document.createElement("button");
       b.type = "button"; b.className = key === picked ? "on" : "";
       b.append(name); if (hint) { const s = document.createElement("small"); s.textContent = hint; b.append(s); }
-      b.onclick = () => { pick(key); voiceChoices(); voice ? playPreview() : tryBg(); };
+      b.onclick = () => { pick(key); voiceChoices(); after(); };
       box.appendChild(b);
     }
   };
   $("fxLabel").hidden = $("fxChips").hidden = !page.effects.length;
-  fill($("fxChips"), page.effects.map(k => [k, VoiceFx.NAMES[k], VoiceFx.HINTS[k]]), fxPick, k => { fxPick = k; });
+  const lane = ed && ed.open && ed.lanes[ed.sel] ? ed.lanes[ed.sel].layer : 1;
+  $("fxFor").textContent = lane === 2 ? "เสียงประสาน" : "เสียง 1";
+  $("fxFor").classList.toggle("l2", lane === 2); $("fxChips").classList.toggle("l2", lane === 2);
+  fill($("fxChips"), page.effects.map(k => [k, VoiceFx.NAMES[k], VoiceFx.HINTS[k]]), lane === 2 ? fxPick2 : fxPick,
+       k => { if (lane === 2) fxPick2 = k; else fxPick = k; }, fxHeard);
   $("bgLabel").hidden = $("bgChips").hidden = !bgs.length;
   fill($("bgChips"), [["", "ไม่มี", ""], ...bgs.map(b => [b.id, b.name, ""])], bgPick, k => { bgPick = k; });
   $("bgVolRow").hidden = $("phones").hidden = !bgPick;
@@ -1186,7 +1195,13 @@ async function voiceMix() {
   if (voice2 && !voice2Decoded) voice2Decoded = await a.decodeAudioData(await voice2.blob.arrayBuffer());
   const synced = voice.withBg && voice.withBg === bgPick;
   const settings = { ...page, bg_volume: bgLoud(), bg_lead: synced ? 0 : page.bg_lead };
-  return VoiceFx.render(heardAll(synced ? voice.delay : 0), fxPick, await bgBuffer(bgPick), settings, a);
+  const one = heardVoice(synced ? voice.delay : 0), two = heardHarmony();
+  if (!two) return VoiceFx.render(one, fxPick, await bgBuffer(bgPick), settings, a);
+  const sr = one.sampleRate, x = VoiceFx.even(VoiceFx.apply(fxPick, one.getChannelData(0), sr), sr);
+  const y = VoiceFx.even(VoiceFx.apply(fxPick2, two.getChannelData(0), sr), sr);
+  const both = a.createBuffer(1, Math.max(x.length, y.length), sr), z = both.getChannelData(0);
+  z.set(x); for (let i = 0; i < y.length; i++) z[i] += y[i];
+  return VoiceFx.render(both, "real", await bgBuffer(bgPick), settings, a);
 }
 // the timing view: peaks of the music (top) and of the voice (below, moved left by its delay), the same seconds across
 const SYNC_MAX = 1.5, SYNC_COLS = 120;
@@ -1354,7 +1369,21 @@ async function laneSound(take) {
     take.recorder.requestData(); await new Promise(r => setTimeout(r, 150));
   }
   const decoded = await ctx().decodeAudioData(await new Blob(take.chunks, { type: take.recorder.mimeType }).arrayBuffer());
-  return take.parts.length ? placeParts(decoded, take.parts, take.layer === 1 && !ed.bed ? 0 : take.delay) : null;
+  if (!take.parts.length) return null;
+  const placed = placeParts(decoded, take.parts, take.layer === 1 && !ed.bed ? 0 : take.delay), sr = placed.sampleRate;
+  const loud = VoiceFx.even(VoiceFx.apply(take.layer === 2 ? fxPick2 : fxPick, placed.getChannelData(0), sr), sr);
+  const gain = Math.max(0, Math.min(1, (page.voice_volume != null ? page.voice_volume : 80) / 100));
+  const out = ctx().createBuffer(1, loud.length, sr);
+  out.copyToChannel(loud.map(v => v * gain), 0);
+  return out;
+}
+// an effect picked: heard at once (in the editor from the line, after it in the done view's preview)
+function fxHeard() {
+  if (ed && ed.open) {
+    if (recordingNow()) return;
+    const end = Math.max(0, ...ed.lanes.map(take => take.end));
+    if (end) startPlay(ed.pos >= end - 0.05 ? 0 : ed.pos);
+  } else if (voice) playPreview();
 }
 async function allSounds() { return Promise.all(ed.lanes.map(async take => [take, await laneSound(take).catch(() => null)])); }
 // the parts of a take with what is after `at` dropped (recording goes on from there)
@@ -1441,6 +1470,7 @@ function edShown() {
   if (ed.bed) $("recBg").textContent = paused ? `♪ ${bgName(ed.withBg)} พักอยู่ · เล่นต่อจากเส้น` : `♪ ${bgName(ed.withBg)} กำลังเล่น · พากไปพร้อมเพลงได้เลย`;
   $("recBg").hidden = !ed.bed;
   $("cutBar").hidden = !paused; $("cutBar").classList.toggle("l2", take && take.layer === 2);
+  voiceChoices();  // the effect chips follow the lane picked
   $("laneAdd").hidden = !paused || ed.lanes.length > 1 || !ed.lanes[0].end;
   const replaced = take && ed.pos < take.end - 0.04;
   $("cutText").textContent = `${LANE_NAMES[take.layer - 1]} · ` + (replaced ? `ทับตั้งแต่ ${clock(ed.pos)}` : `อัดจาก ${clock(ed.pos)}`);
@@ -1942,7 +1972,10 @@ async function sendNow() {
     const shift = voice2.delay - (mixed.voice_bg_delay || 0);
     const r2 = x => Math.round(x * 100) / 100;
     const parts2 = voice2.parts.map(([a, b, at]) => [r2(Math.max(0, a + shift)), r2(b + shift), r2(at + Math.max(0, -(a + shift)))]).filter(([a, b]) => b > a);
-    if (parts2.length) { mixed.voice_path2 = harmonyPath; mixed.voice_parts2 = parts2; }
+    if (parts2.length) {
+      mixed.voice_path2 = harmonyPath; mixed.voice_parts2 = parts2;
+      if (page.effects.includes(fxPick2)) mixed.voice_effect2 = fxPick2;
+    }
   }
   let { error } = await sb.from("slips").insert(withWho(voicePath ? { ...row, voice_path: voicePath, ...picks, ...mixed } : row));
   // ยังไม่ได้รัน setup-voice-mix.sql: ส่งไปก่อนโดยใช้ความดังและเพลงนำของสตรีมเมอร์

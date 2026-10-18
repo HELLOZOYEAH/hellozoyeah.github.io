@@ -171,5 +171,5 @@
     buffer.copyToChannel(out, 0);
     return buffer;
   }
-  window.VoiceFx = { NAMES, HINTS, apply, render };
+  window.VoiceFx = { NAMES, HINTS, apply, render, even };
 })();
