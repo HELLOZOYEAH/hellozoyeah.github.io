@@ -70,7 +70,7 @@
   .wag { animation:wag .5s ease-in-out infinite; transform-origin:50% 100%; }
   .wag.d1 { animation-delay:.15s; }
   @keyframes wag { 0%, 100% { transform:rotate(-22deg); } 50% { transform:rotate(22deg); } }
-  /* the bigger your own amount, the happier: thumbs (100) → clapping, gold (300) → a deep bow, COMBO (1,000) → raised hands
+  /* the bigger your own amount, the happier: thumbs (100) → clapping, gold (300) → a deep bow (1,000) → raised hands
      jumping, rainbow (5,000) */
   .clap { animation:clap .42s ease-in-out infinite; transform-origin:50% 80%; }
   @keyframes clap { 0%, 100% { transform:scale(1) rotate(-6deg); } 50% { transform:scale(1.22) rotate(6deg); } }
@@ -139,9 +139,6 @@
   .orbit img { display:block; animation:unspin 6s linear infinite; filter:drop-shadow(0 2px 6px rgba(0,0,0,.6)); }
   @keyframes spin { to { transform:rotate(360deg); } }
   @keyframes unspin { from { transform:rotate(0deg) scaleY(2.78); } to { transform:rotate(-360deg) scaleY(2.78); } }  /* upright and unsquashed */
-  .combo { margin:2px auto 4px; width:max-content; padding:2px 12px; border-radius:999px; border:1px solid #ff8a3d; color:#ffb27a; background:#2a1508;
-    font:700 13px "Bai Jamjuree", sans-serif; letter-spacing:1px; animation:combo 1s ease-in-out infinite; }
-  @keyframes combo { 0%, 100% { transform:scale(1); } 50% { transform:scale(1.08); } }
   .shake { animation:shake .9s ease-in-out infinite; transform-origin:50% 20%; }
   @keyframes shake { 0%, 100% { transform:translateY(0) rotate(0); } 20% { transform:translateY(3px) rotate(-12deg); } 40% { transform:translateY(0) rotate(10deg); }
     60% { transform:translateY(3px) rotate(-8deg); } 80% { transform:rotate(4deg); } }
@@ -292,7 +289,6 @@
   <section class="card">
     <div class="step"><span class="dots">02</span>เลือกยอดแล้วสแกนพร้อมเพย์</div>
     <div class="big"><div class="dots" id="big">0</div><span>บาท</span></div>
-    <div class="combo" id="comboTag" hidden>เปิด COMBO!</div>
     <div class="quick" id="quick"></div>
     <label for="amount" id="amountLabel">หรือใส่ยอดเอง</label>
     <input id="amount" type="number" inputmode="decimal" step="1">
@@ -408,7 +404,7 @@ twitchShown();
 const hand = (kind, cls, size) => `<img class="${cls}" src="hands/${kind}.png" width="${size}" height="${size}" alt="">`;
 let ownAmount = false;  // the donor is typing their own amount
 const MAX_AMOUNT = 100000;  // the most one donation may be (setup*.sql: amount <= 100000)
-// your own amount from the biggest chip up: the higher, the happier (hands only); the COMBO line comes from the app
+// your own amount from the biggest chip up: the higher, the happier (hands only)
 const JOY = [  // [from baht, hand, move, size, sparkles, chip look, amount look]; "boss" levels draw their own (amountBoss)
   [1000000, "orbit", "", 0, 0, "rainbow", "rainbow fast"],
   [100000, "shake", "deal", 104, 4, "rainbow", "rainbow fast"],  // the running rainbow of 5,000, faster: exciting (2026-10-18)
@@ -432,7 +428,6 @@ function amountHands() {
   document.querySelectorAll(".ring, .big .rays, .rain").forEach(x => x.remove());
   $("quick").closest(".card").classList.remove("million");
   $("amount").classList.remove(...looks); $("big").classList.remove("gold", "max", "rainbow", "love", "plat", "fast", "huge");
-  $("comboTag").hidden = !(page.combo_baht > 0 && amt >= page.combo_baht);
   const top = Math.max(...chips.map(b => Number(b.dataset.amount)));
   if (ownAmount) {
     if (!(amt > 0)) return;
@@ -571,7 +566,7 @@ let voice = null;      // { blob, type, ext, seconds, url }
 let recording = null;  // { recorder, stream, ac, analyser, chunks, levels, started, seconds }
 // ค่าตั้งเสียงกับรายการเสียงพื้นหลังมาจาก Supabase (setup-voice-fx.sql · ACEACE แก้ได้เอง ไม่ต้อง push) · ยังไม่มี = ใช้ config.js
 const page = { voice: true, voice_min: C.voiceMinAmount, voice_seconds: C.voiceSeconds, effects: Object.keys(VoiceFx.NAMES),
-               video_min: C.videoMinAmount, video_seconds: C.videoSeconds, combo_baht: 0,
+               video_min: C.videoMinAmount, video_seconds: C.videoSeconds,
                voice_volume: 80, bg_volume: 40, bg_lead: 1, bg_duck: 30 };
 let bgs = [], fxPick = "", bgPick = "", audioCtx = null, previewNode = null, voiceDecoded = null;
 const bgCache = {};
