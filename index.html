@@ -1906,10 +1906,12 @@ const noMeme = () => { $("nudgeImg").hidden = true; $("nudgeFace").hidden = fals
 $("nudgeImg").onerror = noMeme;
 if ($("nudgeImg").complete && !$("nudgeImg").naturalWidth) noMeme();
 for (const ch of FACE.join("")) { const d = document.createElement("b"); if (ch === "X") d.className = "on"; $("nudgeFace").appendChild(d); }
-$("send").onclick = () => {
+$("send").onclick = async () => {
   catchName(); catchAmount(); catchText();  // sent mid-spin: what is on screen is the one
   if (who === "cool" && !$("name").value.trim()) { $("name").focus(); return say("พิมพ์ชื่อเบียวก่อน หรือกด ไม่บอกชื่อ", "bad"); }
   if ((who === "twitch" || who === "tiktok") && !twitchTyped().login) { $("twitch").focus(); return say("ใส่ชื่อบัญชีก่อน หรือกด ชื่อเบียว / ไม่บอกชื่อ", "bad"); }
+  // sent while still in the recording editor (หยุด not pressed): what was recorded is stopped and sent as it is
+  if (ed && ed.open && voiceShown()) { $("send").disabled = true; await stopVoice(); $("send").disabled = false; }
   if (nudgeNeeded()) { $("nudge").hidden = false; return; }
   sendNow();
 };
@@ -1934,6 +1936,7 @@ async function sendNow() {
   say("กำลังส่ง…");
   // เสียงขึ้นก่อนแถวโดเนต เพราะ ACEACE อ่านแถวทันที · ชื่อไฟล์สุ่ม ไม่ใช้เลขรายการบนสลิป (ที่เก็บเสียงเปิดให้ฟังได้)
   let voicePath = null;
+  if (ed && ed.open && voiceShown()) await stopVoice();  // as in the send button: never left behind
   const voiceWanted = !!(voice && voiceShown());
   if (voiceWanted) {
     const path = `${new Date().toISOString().slice(0, 10)}/${randomId()}.${voice.ext}`;
