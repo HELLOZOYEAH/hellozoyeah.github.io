@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b0b0d">
 <title>โดเนท</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Doto:wght@900&family=Bai+Jamjuree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@900&family=Cinzel:wght@900&family=Bai+Jamjuree:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root { --bg:#0b0b0d; --panel:#141416; --card:#191919; --line:#252525; --field:#0f0f11; --field-line:#2f2f35;
           --ink:#ececec; --muted:#9a9aa3; --dim:#7d7d86; --accent:#b9a6ff; --accent-deep:#221d33; --accent-line:#3a3350;
@@ -224,6 +224,37 @@
     background-size:100% 100%, 300% 100%; animation:rainbow var(--sweep, 2.4s) linear infinite;
     box-shadow:0 0 calc(10px + 30px * var(--power, 0)) rgba(197,155,255,calc(.25 + .45 * var(--power, 0))); }
   .diceRow.caught input { animation:caught .5s cubic-bezier(.3,1.6,.5,1); border-color:#ffd27a; box-shadow:0 0 22px rgba(255,210,122,.45); }
+  /* the roll (2026-10-18): a die pops into the middle of the screen, a d20 in obsidian and gold as Baldur's Gate 3 rolls
+     it; it tumbles faster the more it is tapped, the light behind it grows; จับ! lands it on a natural 20 */
+  .roll { position:fixed; inset:0; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    padding:24px 16px; background:radial-gradient(circle at 50% 42%, rgba(40,26,70,.93), rgba(6,5,10,.97) 70%);
+    -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); animation:fadeIn .2s ease-out; }
+  .roll.out { animation:fadeOut .35s ease-in forwards; }
+  @keyframes fadeIn { from { opacity:0; } }
+  @keyframes fadeOut { to { opacity:0; } }
+  .rollStage { position:relative; width:230px; height:240px; display:flex; align-items:center; justify-content:center; animation:popIn .55s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes popIn { 0% { transform:scale(.15) rotate(-140deg); opacity:0; } 100% { transform:none; opacity:1; } }
+  .rollRays { position:absolute; left:50%; top:50%; width:calc(300px + 160px * var(--power, 0)); height:calc(300px + 160px * var(--power, 0));
+    transform:translate(-50%, -50%); border-radius:50%; pointer-events:none; opacity:calc(.35 + .55 * var(--power, 0));
+    background:repeating-conic-gradient(from var(--spin, 0deg), rgba(232,196,112,0) 0 10deg, rgba(232,196,112,.35) 10deg 15deg);
+    -webkit-mask:radial-gradient(circle, #000 20%, transparent 68%); mask:radial-gradient(circle, #000 20%, transparent 68%); animation:holo 7s linear infinite; }
+  .d20 { position:relative; border:0; padding:0; background:none; cursor:pointer; line-height:0; -webkit-tap-highlight-color:transparent;
+    filter:drop-shadow(0 0 calc(14px + 26px * var(--power, 0)) rgba(197,155,255,.55)) drop-shadow(0 10px 18px rgba(0,0,0,.7)); }
+  .d20 svg { display:block; animation:tumble var(--roll, .8s) linear infinite; }
+  @keyframes tumble { 0% { transform:rotate(0) scale(1); } 25% { transform:rotate(90deg) scale(.9) rotateX(28deg); } 50% { transform:rotate(180deg) scale(1); }
+    75% { transform:rotate(270deg) scale(.9) rotateX(-28deg); } 100% { transform:rotate(360deg) scale(1); } }
+  .d20:active svg { scale:.94; }
+  .roll.landed .d20 svg { animation:land .6s cubic-bezier(.2,1.7,.4,1); }
+  .roll.landed .d20 { filter:drop-shadow(0 0 34px rgba(255,214,120,.85)) drop-shadow(0 10px 18px rgba(0,0,0,.7)); }
+  @keyframes land { 0% { transform:rotate(-40deg) scale(1.5); } 100% { transform:none; } }
+  .rollValue { min-height:44px; max-width:100%; text-align:center; color:#fff; font:600 24px "Bai Jamjuree", sans-serif; text-shadow:0 0 18px rgba(197,155,255,.6); overflow-wrap:anywhere; }
+  .roll[data-kind="amount"] .rollValue { font:900 40px "Doto", monospace; color:#ffe08a; text-shadow:0 0 18px rgba(255,200,80,.6); }
+  .roll.landed .rollValue { animation:caught .5s cubic-bezier(.3,1.6,.5,1); color:#ffe08a; }
+  .rollHint { color:var(--muted); font-size:13px; text-align:center; }
+  .roll.landed .rollHint { color:#ffd27a; font:900 18px "Cinzel", serif; letter-spacing:2px; }
+  .rollCatch { min-width:180px; height:54px; border-radius:16px; border:2px solid #e8c470; background:#1a1408; color:#ffe08a; font:600 20px "Bai Jamjuree", sans-serif;
+    cursor:pointer; box-shadow:0 0 22px rgba(232,196,112,.35); }
+  .roll.landed .rollCatch { visibility:hidden; }
   @keyframes caught { 0% { transform:scale(.94); } 60% { transform:scale(1.04); } 100% { transform:none; } }
   .amountRow input[type=number]::-webkit-inner-spin-button { margin-right:4px; }
   /* the slip, held like a trading card: it sways, follows a finger, a mouse or the phone's tilt, and wears the amount's rank
@@ -378,6 +409,35 @@
   <div class="foot">ชื่อ ยอด และข้อความจะขึ้นบนสตรีม · รูปสลิปเห็นเฉพาะเจ้าของช่อง</div>
 </main>
 
+<div class="roll" id="roll" hidden role="dialog" aria-modal="true" aria-label="ทอยลูกเต๋า">
+  <div class="rollStage">
+    <span class="rollRays"></span>
+    <button type="button" class="d20" id="d20" aria-label="หมุนแรงขึ้น">
+      <svg viewBox="-6 -6 212 232" width="200" height="218" aria-hidden="true">
+        <defs>
+          <linearGradient id="d20a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5d4196"/><stop offset="1" stop-color="#1d1433"/></linearGradient>
+          <linearGradient id="d20b" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b2864"/><stop offset="1" stop-color="#0f0a1c"/></linearGradient>
+          <linearGradient id="d20c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a66c9"/><stop offset="1" stop-color="#3a2866"/></linearGradient>
+          <linearGradient id="d20g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c8"/><stop offset=".45" stop-color="#e8c470"/><stop offset="1" stop-color="#94651f"/></linearGradient>
+        </defs>
+        <g stroke="url(#d20g)" stroke-width="3" stroke-linejoin="round">
+          <polygon points="100,5 190,57 100,45" fill="url(#d20a)"/><polygon points="100,5 10,57 100,45" fill="url(#d20b)"/>
+          <polygon points="190,57 190,163 165,152" fill="url(#d20b)"/><polygon points="190,163 100,215 165,152" fill="url(#d20a)"/>
+          <polygon points="100,215 10,163 35,152" fill="url(#d20b)"/><polygon points="10,163 10,57 35,152" fill="url(#d20a)"/>
+          <polygon points="100,45 165,152 190,57" fill="url(#d20b)"/><polygon points="165,152 35,152 100,215" fill="url(#d20b)"/>
+          <polygon points="35,152 100,45 10,57" fill="url(#d20a)"/>
+          <polygon points="100,45 165,152 35,152" fill="url(#d20c)"/>
+          <polygon points="100,5 190,57 190,163 100,215 10,163 10,57" fill="none" stroke-width="5"/>
+        </g>
+        <text id="d20n" x="100" y="134" text-anchor="middle" font-family="Cinzel, serif" font-weight="900" font-size="44" fill="url(#d20g)" stroke="#2a1a05" stroke-width="1">20</text>
+      </svg>
+    </button>
+  </div>
+  <div class="rollValue" id="rollValue" aria-live="polite"></div>
+  <div class="rollHint" id="rollHint">แตะลูกเต๋า = หมุนแรงขึ้น</div>
+  <button type="button" class="rollCatch" id="rollCatch">จับ!</button>
+</div>
+
 <div class="nudge" id="nudge" hidden role="dialog" aria-modal="true" aria-label="แน่ใจนะ">
   <div class="nudgeCard">
     <div class="meme">
@@ -458,7 +518,8 @@ const COOL_NAMES = ["จอมมารแห่งความมืด", "ร�
   "ดาบที่เจ็ดแห่งวันสิ้นโลก", "ผู้อัญเชิญดวงดาว", "ผู้ไร้พ่ายแห่งรัตติกาล", "เทพแห่งการตื่นสาย", "จอมมารผู้ยังไม่ทำการบ้าน",
   "ราชาแห่งข้าวมันไก่", "ผู้กล้าที่หลงทางมาสามปี"];
 // a die: each tap adds about a second of full spin; it never stops by itself (3 a second at least) until caught
-function spinner(rowId, buttonId, pick, show, changed) {
+let rolling = null, rollClose = 0;  // the spinner on screen
+function spinner(rowId, buttonId, pick, show, changed, kind, say) {
   const row = $(rowId), s = { power: 0, timer: 0, last: 0, prev: null };
   s.spinning = () => row.classList.contains("spin");
   function step() {
@@ -466,29 +527,53 @@ function spinner(rowId, buttonId, pick, show, changed) {
     s.last = now;
     s.power = Math.max(0, s.power - dt * .9);
     const p = Math.min(1, s.power / 3);
-    row.style.setProperty("--power", p.toFixed(2));
-    row.style.setProperty("--roll", (.9 - .75 * p).toFixed(2) + "s");
-    row.style.setProperty("--sweep", (2.4 - 1.8 * p).toFixed(2) + "s");
+    for (const el of [row, $("roll")]) {
+      el.style.setProperty("--power", p.toFixed(2));
+      el.style.setProperty("--roll", (.9 - .75 * p).toFixed(2) + "s");
+      el.style.setProperty("--sweep", (2.4 - 1.8 * p).toFixed(2) + "s");
+    }
     let v; do { v = pick(); } while (v === s.prev);
     s.prev = v; show(v);
+    $("rollValue").textContent = say(v); $("d20n").textContent = 1 + Math.floor(Math.random() * 20);
     s.timer = setTimeout(step, 1000 / (3 + 19 * p));
   }
-  $(buttonId).onclick = () => {
+  s.push = () => {
     s.power = Math.min(s.power + 1.2, 8);
     row.classList.remove("caught");
-    if (!s.spinning()) { row.classList.add("spin"); s.last = 0; step(); changed(true); }
+    if (!s.spinning()) { row.classList.add("spin"); s.last = 0; rollOpen(s, kind); step(); changed(true); }
   };
+  $(buttonId).onclick = s.push;
   s.stop = () => {  // catch: what is on screen is the one
     if (!s.spinning()) return false;
     clearTimeout(s.timer); s.power = 0;
     row.classList.remove("spin"); void row.offsetWidth; row.classList.add("caught");
-    changed(false);
+    changed(false); rollLand(s);
     return true;
   };
   return s;
 }
+function rollOpen(s, kind) {
+  if (rolling && rolling !== s) rolling.stop();
+  clearTimeout(rollClose);
+  rolling = s;
+  const roll = $("roll");
+  roll.hidden = false; roll.classList.remove("landed", "out"); roll.dataset.kind = kind;
+  $("rollHint").textContent = "แตะลูกเต๋า = หมุนแรงขึ้น";
+}
+function rollLand(s) {  // a natural 20, every time; then back to the page
+  if (rolling !== s) return;
+  rolling = null;
+  const roll = $("roll");
+  $("d20n").textContent = "20"; $("rollHint").textContent = "NAT 20 · คริติคอล!";
+  roll.classList.add("landed");
+  rollClose = setTimeout(() => { roll.classList.add("out"); rollClose = setTimeout(() => { roll.hidden = true; }, 350); }, 1300);
+}
+$("d20").onclick = () => rolling && rolling.push();
+$("rollCatch").onclick = () => rolling && rolling.stop();
+$("rollValue").onclick = () => rolling && rolling.stop();
+addEventListener("keydown", e => { if (rolling && (e.key === "Escape" || e.key === "Enter" || e.key === " ")) { e.preventDefault(); rolling.stop(); } });
 const nameSpin = spinner("nameRow", "dice", () => COOL_NAMES[Math.floor(Math.random() * COOL_NAMES.length)], v => { $("name").value = v; },
-                         on => { $("name").readOnly = on; twitchShown(); });
+                         on => { $("name").readOnly = on; twitchShown(); }, "name", v => v);
 function spinning() { return $("nameRow").classList.contains("spin"); }
 function catchName() { return spinning() && nameSpin.stop(); }
 $("name").addEventListener("pointerdown", e => { if (catchName()) e.preventDefault(); });  // catch!
@@ -894,7 +979,7 @@ const amountSpin = spinner("amountRow", "amountDice", prettyAmount, v => {  // j
   }
   $("amountLabel").textContent = on ? "กดลูกเต๋าซ้ำ = หมุนแรงขึ้น · แตะช่องยอดเพื่อจับ!" : `หรือใส่ยอดเอง (ขั้นต่ำ ${C.minAmount} บาท)`;
   if (!on) drawQr();
-});
+}, "amount", v => v.toLocaleString("th-TH") + " บาท");
 const catchAmount = () => amountSpin.stop();
 $("amount").addEventListener("pointerdown", e => { if (catchAmount()) e.preventDefault(); });
 $("big").addEventListener("pointerdown", () => catchAmount());
