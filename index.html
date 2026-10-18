@@ -27,6 +27,27 @@
   .hero { background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:26px 18px 22px; display:flex; flex-direction:column; align-items:center; gap:16px; }
   /* the streamer's own logo on top (2026-10-18), a soft glow behind its chrome */
   .logo { display:block; height:150px; width:auto; filter:drop-shadow(0 0 18px rgba(185,166,255,.35)) drop-shadow(0 6px 14px rgba(0,0,0,.6)); }
+  /* the logo floats, half 3D (docs/mockups/donation-logo-3d.html, D, 2026-10-18): it bobs over a shadow that shrinks as it
+     rises, a few darker copies behind give it thickness, a glint runs over the chrome, and it leans toward a finger or the
+     mouse (a slow sway otherwise) */
+  .logoStage { position:relative; height:190px; width:150px; perspective:600px; display:flex; justify-content:center; touch-action:pan-y; }
+  .logoFloat, .logoTilt { position:relative; transform-style:preserve-3d; }
+  .logoFloat { animation:logoBob 4s ease-in-out infinite; }
+  @keyframes logoBob { 0%, 100% { transform:translateY(6px); } 50% { transform:translateY(-10px); } }
+  .logoTilt { transform:rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition:transform .2s ease-out; }
+  .logoTilt:not(.held) { animation:logoSway 6s ease-in-out infinite; }
+  @keyframes logoSway { 0%, 100% { transform:rotateY(-16deg) rotateX(4deg); } 50% { transform:rotateY(16deg) rotateX(-4deg); } }
+  .logoTilt .logo { position:relative; }
+  .logoLayer { position:absolute; inset:0; display:block; height:150px; width:auto; transform:translateZ(var(--z)); filter:brightness(var(--d)) saturate(.6); }
+  .logoGlint { position:absolute; inset:0; pointer-events:none; mix-blend-mode:screen;
+    -webkit-mask:url(logo.png) center / contain no-repeat; mask:url(logo.png) center / contain no-repeat;
+    background:linear-gradient(110deg, transparent 35%, rgba(255,255,255,.95) 47%, rgba(200,180,255,.6) 52%, transparent 62%) var(--gx, 140%) 0 / 300% 100% no-repeat;
+    animation:logoGlint 4.5s ease-in-out infinite; }
+  .logoTilt.held .logoGlint { animation:none; }
+  @keyframes logoGlint { 0%, 30% { background-position:140% 0; } 60%, 100% { background-position:-40% 0; } }
+  .logoGround { position:absolute; left:50%; bottom:0; width:110px; height:16px; margin-left:-55px; border-radius:50%;
+    background:radial-gradient(closest-side, rgba(185,166,255,.35), rgba(0,0,0,.45) 50%, transparent); animation:logoShadow 4s ease-in-out infinite; }
+  @keyframes logoShadow { 0%, 100% { transform:scale(1); opacity:1; } 50% { transform:scale(.7); opacity:.55; } }
   .thanks { margin:0; font-size:15px !important; color:#e6e0fa !important; line-height:1.6; }
   .hero p { margin:0; font-size:13px; color:var(--muted); text-align:center; }
   h1 { margin:4px 0 0; font-size:34px; letter-spacing:1px; color:#fff; text-align:center; overflow-wrap:anywhere; }
@@ -334,7 +355,10 @@
   </div>
 
   <div class="hero">
-    <img class="logo" src="logo.png" alt="โลโก้ช่อง">
+    <div class="logoStage" id="logoStage">
+      <div class="logoFloat"><div class="logoTilt" id="logoTilt"><img class="logoLayer" src="logo.png" style="--z:-0.6px;--d:0.61" alt="" aria-hidden="true"><img class="logoLayer" src="logo.png" style="--z:-1.2px;--d:0.67" alt="" aria-hidden="true"><img class="logoLayer" src="logo.png" style="--z:-1.8px;--d:0.73" alt="" aria-hidden="true"><img class="logoLayer" src="logo.png" style="--z:-2.4px;--d:0.79" alt="" aria-hidden="true"><img class="logoLayer" src="logo.png" style="--z:-3.0px;--d:0.85" alt="" aria-hidden="true"><img class="logoLayer" src="logo.png" style="--z:-3.6px;--d:0.91" alt="" aria-hidden="true"><img class="logo" src="logo.png" alt="โลโก้ช่อง"><span class="logoGlint"></span></div></div>
+      <span class="logoGround"></span>
+    </div>
     <div>
       <p class="thanks">7 ปีแล้วนะทุกคน ขอบคุณมาก<br>เว็บนี้ผมทำเองนะ</p>
       <h1 class="dots" id="ch"></h1>
@@ -1090,6 +1114,23 @@ $("file").onchange = async () => {
   say(`พบสลิป ${BANKS[info.bank] || "ธนาคาร " + info.bank} ✓`, "ok");
   $("send").disabled = false;
 };
+
+// the floating logo leans toward the mouse or a finger on it; let go, it sways again
+function logoLean(x, y) {
+  const r = $("logoStage").getBoundingClientRect(), px = Math.max(-.5, Math.min(.5, (x - r.left) / r.width - .5)), py = Math.max(-.5, Math.min(.5, (y - r.top) / r.height - .5));
+  const tilt = $("logoTilt");
+  tilt.classList.add("held");
+  tilt.style.setProperty("--ry", (px * 40).toFixed(1) + "deg"); tilt.style.setProperty("--rx", (-py * 26).toFixed(1) + "deg");
+  tilt.style.setProperty("--gx", (140 - (px + .5) * 180).toFixed(0) + "%");
+}
+function logoLetGo() {
+  const tilt = $("logoTilt");
+  tilt.classList.remove("held"); ["--rx", "--ry", "--gx"].forEach(v => tilt.style.removeProperty(v));
+}
+$("logoStage").addEventListener("pointermove", e => { if (e.pointerType === "mouse") logoLean(e.clientX, e.clientY); });
+$("logoStage").addEventListener("pointerleave", logoLetGo);
+$("logoStage").addEventListener("touchmove", e => logoLean(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+$("logoStage").addEventListener("touchend", logoLetGo);
 
 // the slip card's rank: the amount it is for
 // [from baht, the badge, its look]: Thx under 100, Rare from 100 (warmer from 300), Rare+ from 1,000, then S, SS+, SSS
