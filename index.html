@@ -211,20 +211,55 @@
   .who button small { font-size:10px; color:var(--dim); font-weight:400; }
   .who button.on { border-color:var(--accent); background:var(--accent-deep); color:#fff; }
   .who button.on small { color:#c9b8ff; }
-  /* every tap on the die spins it harder and longer; it never stops by itself: tap the name to catch it */
-  .nameRow { position:relative; }
-  .nameRow input { padding-right:62px; }
-  #dice { position:absolute; right:6px; top:50%; width:48px; height:48px; margin-top:-24px; border:0; padding:0; background:none; cursor:pointer; line-height:0; }
-  #dice img { display:block; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
-  #dice:active img { transform:scale(.88); }
-  .nameRow.spin #dice img { animation:roll var(--roll, .8s) linear infinite; }
+  /* a die (ชื่อเบียว, the amount): every tap spins it harder and longer; it never stops by itself: tap the box to catch */
+  .diceRow { position:relative; }
+  .diceRow input { padding-right:62px; }
+  .diceBtn { position:absolute; right:6px; top:50%; width:48px; height:48px; margin-top:-24px; border:0; padding:0; background:none; cursor:pointer; line-height:0; }
+  .diceBtn img { display:block; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
+  .diceBtn:active img { transform:scale(.88); }
+  .diceRow.spin .diceBtn img { animation:roll var(--roll, .8s) linear infinite; }
   @keyframes roll { to { transform:rotate(360deg); } }
-  .nameRow.spin input { cursor:pointer; caret-color:transparent; border-color:transparent; color:#fff;
+  .diceRow.spin input { cursor:pointer; caret-color:transparent; border-color:transparent; color:#fff;
     background:linear-gradient(var(--field), var(--field)) padding-box, linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6) border-box;
     background-size:100% 100%, 300% 100%; animation:rainbow var(--sweep, 2.4s) linear infinite;
     box-shadow:0 0 calc(10px + 30px * var(--power, 0)) rgba(197,155,255,calc(.25 + .45 * var(--power, 0))); }
-  .nameRow.caught input { animation:caught .5s cubic-bezier(.3,1.6,.5,1); border-color:#ffd27a; box-shadow:0 0 22px rgba(255,210,122,.45); }
+  .diceRow.caught input { animation:caught .5s cubic-bezier(.3,1.6,.5,1); border-color:#ffd27a; box-shadow:0 0 22px rgba(255,210,122,.45); }
   @keyframes caught { 0% { transform:scale(.94); } 60% { transform:scale(1.04); } 100% { transform:none; } }
+  .amountRow input[type=number]::-webkit-inner-spin-button { margin-right:4px; }
+  /* the slip, held like a trading card: it sways, follows a finger, a mouse or the phone's tilt, and wears the amount's rank
+     (C · B · A · A+ · S at 5,000 · SS+ at 10,000 · SSS at 100,000) in its aura */
+  .slipCard { perspective:700px; display:flex; justify-content:center; padding:10px 0 4px; }
+  .tilt { position:relative; display:inline-block; line-height:0; border-radius:12px; transform-style:preserve-3d;
+    transform:rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition:transform .15s ease-out; animation:sway 4s ease-in-out infinite; }
+  .slipCard.held .tilt { animation:none; }
+  @keyframes sway { 0%, 100% { transform:rotateY(-12deg) rotateX(4deg); } 50% { transform:rotateY(12deg) rotateX(-3deg); } }
+  .tilt img { max-width:100%; max-height:240px; border-radius:12px; display:block; position:relative; }
+  .tilt .shine { position:absolute; inset:0; border-radius:12px; pointer-events:none; mix-blend-mode:screen;
+    background:linear-gradient(115deg, transparent 35%, rgba(255,255,255,.5) 48%, transparent 60%) var(--mx, 50%) 0 / 250% 100% no-repeat;
+    animation:glint 4s ease-in-out infinite; }
+  .slipCard.held .shine { animation:none; }
+  @keyframes glint { 0%, 100% { background-position:100% 0; } 50% { background-position:0 0; } }
+  .tilt .aura { position:absolute; inset:-5px; border-radius:16px; pointer-events:none; transform:translateZ(-1px); }
+  .tilt .rank { position:absolute; top:-12px; right:-12px; min-width:40px; height:40px; padding:0 8px; border-radius:12px; display:flex; align-items:center;
+    justify-content:center; font:900 22px "Doto", monospace; line-height:1; background:#15121f; border:2px solid #4a4a55; color:#b8b8c4;
+    transform:translateZ(30px); box-shadow:0 6px 14px rgba(0,0,0,.5); }
+  .r-B .rank { border-color:#5fd38f; color:#a8f0c6; } .r-B .aura { box-shadow:0 0 18px rgba(95,211,143,.45); }
+  .r-A .rank { border-color:#ffc857; color:#ffe08a; } .r-A .aura { box-shadow:0 0 20px rgba(255,200,87,.45); }
+  .r-Ap .rank { border-color:#ffc857; color:#ffe08a; } .r-Ap .aura { box-shadow:0 0 18px rgba(255,200,87,.6), 0 0 42px rgba(255,160,40,.35); animation:breathe 1.6s ease-in-out infinite; }
+  .r-S .aura, .r-SS .aura, .r-SSS .aura { inset:-8px; border-radius:18px; filter:blur(12px); animation:holo 3s linear infinite;
+    background:conic-gradient(from var(--spin, 0deg), #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6); }
+  .r-SS .aura { inset:-12px; filter:blur(16px); animation-duration:1.8s; }
+  .r-SSS .aura { inset:-16px; filter:blur(20px); animation-duration:1.2s;
+    background:conic-gradient(from var(--spin, 0deg), #ffffff, #c7d0e0, #ffe8a8, #ffffff, #b8c8ff, #ffffff); }
+  .r-S .rank, .r-SS .rank, .r-SSS .rank { border-color:transparent; color:#fff;
+    background:linear-gradient(#15121f, #15121f) padding-box, linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6) border-box;
+    background-size:100% 100%, 300% 100%; animation:rainbow 2s linear infinite; }
+  .r-SS .rank, .r-SSS .rank { font-size:18px; }
+  .r-SS .shine, .r-SSS .shine { background:linear-gradient(115deg, transparent 25%, rgba(255,122,182,.35) 38%, rgba(255,255,255,.6) 48%,
+    rgba(122,200,255,.35) 58%, transparent 70%) var(--mx, 50%) 0 / 250% 100% no-repeat; }
+  @property --spin { syntax:"<angle>"; inherits:false; initial-value:0deg; }
+  @keyframes holo { to { --spin:360deg; } }
+  @keyframes breathe { 50% { opacity:.6; } }
   .linkish { align-self:center; background:none; border:0; color:var(--muted); text-decoration:underline; font:inherit; font-size:13px; cursor:pointer; padding:2px; }
   /* แน่ใจนะ? (ส่งโดยไม่มีเสียงหรือคลิป): รูปมีมเต็มการ์ด คำเตือนเป็นตัวหนังสือแบบมีม */
   .nudge { position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:18px; }
@@ -267,9 +302,9 @@
       <button type="button" data-w="cool">ชื่อเบียว<small>พิมพ์เอง</small></button>
       <button type="button" data-w="anon">ไม่บอกชื่อ</button>
     </div>
-    <div class="nameRow" id="nameRow">
+    <div class="diceRow" id="nameRow">
       <input id="name" maxlength="40" placeholder="เช่น จอมมารแห่งความมืด" autocomplete="nickname" aria-label="ชื่อเบียว">
-      <button type="button" id="dice" aria-label="สุ่มชื่อเบียว"><img src="hands/dice.png" width="44" height="44" alt=""></button>
+      <button type="button" class="diceBtn" id="dice" aria-label="สุ่มชื่อเบียว"><img src="hands/dice.png" width="44" height="44" alt=""></button>
     </div>
     <div class="tw" id="twRow"><span id="platIcon"></span><b id="platHost">twitch.tv/</b><input id="twitch" maxlength="60" placeholder="ชื่อบัญชี" autocomplete="username" autocapitalize="off" spellcheck="false" aria-label="ชื่อบัญชี"></div>
     <div class="hint" id="twitchHint"></div>
@@ -322,7 +357,10 @@
     <div class="big"><div class="dots" id="big">0</div><span>บาท</span></div>
     <div class="quick" id="quick"></div>
     <label for="amount" id="amountLabel">หรือใส่ยอดเอง</label>
-    <input id="amount" type="number" inputmode="decimal" step="1">
+    <div class="diceRow amountRow" id="amountRow">
+      <input id="amount" type="number" inputmode="decimal" step="1">
+      <button type="button" class="diceBtn" id="amountDice" aria-label="สุ่มยอด"><img src="hands/dice.png" width="44" height="44" alt=""></button>
+    </div>
     <div class="qrbox"><div id="qr"></div></div>
     <div class="hint">สแกนด้วยแอปธนาคาร ยอดขึ้นให้เอง ไม่ต้องพิมพ์</div>
   </section>
@@ -419,35 +457,40 @@ const COOL_NAMES = ["จอมมารแห่งความมืด", "ร�
   "จอมทัพโลกคู่ขนาน", "นักบวชผู้ทรยศแสง", "ฟีนิกซ์ไม่มีวันมอด", "หมาป่าใต้จันทร์เลือด", "ผู้ครองบัลลังก์กระดูก",
   "ดาบที่เจ็ดแห่งวันสิ้นโลก", "ผู้อัญเชิญดวงดาว", "ผู้ไร้พ่ายแห่งรัตติกาล", "เทพแห่งการตื่นสาย", "จอมมารผู้ยังไม่ทำการบ้าน",
   "ราชาแห่งข้าวมันไก่", "ผู้กล้าที่หลงทางมาสามปี"];
-const dice = { power: 0, timer: 0, last: 0, at: -1 };
+// a die: each tap adds about a second of full spin; it never stops by itself (3 a second at least) until caught
+function spinner(rowId, buttonId, pick, show, changed) {
+  const row = $(rowId), s = { power: 0, timer: 0, last: 0, prev: null };
+  s.spinning = () => row.classList.contains("spin");
+  function step() {
+    const now = performance.now(), dt = s.last ? (now - s.last) / 1000 : 0;
+    s.last = now;
+    s.power = Math.max(0, s.power - dt * .9);
+    const p = Math.min(1, s.power / 3);
+    row.style.setProperty("--power", p.toFixed(2));
+    row.style.setProperty("--roll", (.9 - .75 * p).toFixed(2) + "s");
+    row.style.setProperty("--sweep", (2.4 - 1.8 * p).toFixed(2) + "s");
+    let v; do { v = pick(); } while (v === s.prev);
+    s.prev = v; show(v);
+    s.timer = setTimeout(step, 1000 / (3 + 19 * p));
+  }
+  $(buttonId).onclick = () => {
+    s.power = Math.min(s.power + 1.2, 8);
+    row.classList.remove("caught");
+    if (!s.spinning()) { row.classList.add("spin"); s.last = 0; step(); changed(true); }
+  };
+  s.stop = () => {  // catch: what is on screen is the one
+    if (!s.spinning()) return false;
+    clearTimeout(s.timer); s.power = 0;
+    row.classList.remove("spin"); void row.offsetWidth; row.classList.add("caught");
+    changed(false);
+    return true;
+  };
+  return s;
+}
+const nameSpin = spinner("nameRow", "dice", () => COOL_NAMES[Math.floor(Math.random() * COOL_NAMES.length)], v => { $("name").value = v; },
+                         on => { $("name").readOnly = on; twitchShown(); });
 function spinning() { return $("nameRow").classList.contains("spin"); }
-function spinStep() {
-  const now = performance.now(), dt = dice.last ? (now - dice.last) / 1000 : 0;
-  dice.last = now;
-  dice.power = Math.max(0, dice.power - dt * .9);  // each tap is about a second of full spin, and they add up
-  const p = Math.min(1, dice.power / 3), row = $("nameRow");
-  row.style.setProperty("--power", p.toFixed(2));
-  row.style.setProperty("--roll", (.9 - .75 * p).toFixed(2) + "s");
-  row.style.setProperty("--sweep", (2.4 - 1.8 * p).toFixed(2) + "s");
-  let at; do { at = Math.floor(Math.random() * COOL_NAMES.length); } while (at === dice.at);
-  dice.at = at; $("name").value = COOL_NAMES[at];
-  dice.timer = setTimeout(spinStep, 1000 / (3 + 19 * p));  // never stops: 3 names a second until caught
-}
-$("dice").onclick = () => {
-  dice.power = Math.min(dice.power + 1.2, 8);
-  const row = $("nameRow");
-  row.classList.remove("caught");
-  if (!spinning()) { row.classList.add("spin"); $("name").readOnly = true; dice.last = 0; spinStep(); twitchShown(); }
-};
-function catchName() {
-  if (!spinning()) return false;
-  clearTimeout(dice.timer); dice.power = 0;
-  const row = $("nameRow");
-  row.classList.remove("spin"); $("name").readOnly = false;
-  void row.offsetWidth; row.classList.add("caught");
-  twitchShown();
-  return true;
-}
+function catchName() { return spinning() && nameSpin.stop(); }
 $("name").addEventListener("pointerdown", e => { if (catchName()) e.preventDefault(); });  // catch!
 $("linkTwitch").onclick = () => { linked = !linked; platform = "twitch"; twitchShown(); if (linked) $("twitch").focus(); };
 function twitchShown() {
@@ -473,6 +516,23 @@ twitchShown();
 // มือ 3D (hands/ · Microsoft Fluent Emoji · MIT): อยู่ในปุ่มที่กด ชี้ไปยอดถัดไป · ใส่ยอดเอง ≥ ยอดสูงสุด = ยกนิ้วเด้ง · น้อยกว่า = ห้าม / คว่ำนิ้ว
 const hand = (kind, cls, size) => `<img class="${cls}" src="hands/${kind}.png" width="${size}" height="${size}" alt="">`;
 let ownAmount = false;  // the donor is typing their own amount
+// the amount die, for the laugh: 10,000 and up nearly every time, 5,000–9,999 under 1 in 10, always a pretty number
+// (11,444 · 22,222 · 12,345 · 69,696 · 50,000) and never past MAX_AMOUNT so it can be sent
+function prettyAmount() {
+  const r = n => Math.floor(Math.random() * n), a = 1 + r(9);
+  let b = r(10); while (b === a) b = r(10);
+  if (Math.random() < .03) return 100000;
+  if (Math.random() < .08) {  // 5,000–9,999
+    const f = 5 + r(5), g = (f + 1 + r(9)) % 10;
+    const four = [`${f}${f}${f}${f}`, `${f}${g}${g}${g}`, `${f}0${f}0`, `${f}${f}00`, `${f}${g}${f}${g}`, `${f}${f}${g}${g}`,
+                  ...(f <= 6 ? [`${f}${f + 1}${f + 2}${f + 3}`] : [`${f}${f - 1}${f - 2}${f - 3}`])];
+    return Number(four[r(four.length)]);
+  }
+  const c = r(10), s = 1 + r(5), d = 5 + r(5);
+  const five = [`${a}${a}${a}${a}${a}`, `${a}${a}${b}${b}${b}`, `${a}${b}${b}${b}${b}`, `${a}${b}${c}${b}${a}`, `${a}${b}${a}${b}${a}`,
+                `${a}0000`, `${a}5000`, `${a}${b}000`, `${a}${a}${a}00`, `${s}${s + 1}${s + 2}${s + 3}${s + 4}`, `${d}${d - 1}${d - 2}${d - 3}${d - 4}`];
+  return Number(five[r(five.length)]);
+}
 const MAX_AMOUNT = 100000;  // the most one donation may be (setup*.sql: amount <= 100000)
 // your own amount from the biggest chip up: the higher, the happier (hands only)
 const JOY = [  // [from baht, hand, move, size, sparkles, chip look, amount look]; "boss" levels draw their own (amountBoss)
@@ -561,7 +621,7 @@ for (const a of C.quickAmounts) {
   const b = document.createElement("button");
   b.className = "dots"; b.type = "button"; b.dataset.amount = a;
   const n = document.createElement("span"); n.textContent = a; b.appendChild(n);
-  b.onclick = () => { ownAmount = false; $("amount").value = a; drawQr(); };
+  b.onclick = () => { catchAmount(); ownAmount = false; $("amount").value = a; drawQr(); };
   $("quick").appendChild(b);
 }
 $("amount").onfocus = () => { ownAmount = true; amountHands(); };
@@ -803,6 +863,11 @@ $("voiceAgain").onclick = () => $("voiceStart").click();
 $("voiceDrop").onclick = dropVoice;
 const randomId = () => [...crypto.getRandomValues(new Uint8Array(12))].map(b => b.toString(16).padStart(2, "0")).join("");
 
+function bigSize(amt) {
+  const digits = $("big").textContent.length;  // a big amount gets smaller dots so it fits a phone (1,000,000 is 9 wide)
+  const boss = ownAmount && amt >= 10000;  // from 10,000: as big as a phone allows, the moment of the page
+  return boss ? (digits > 7 ? "48px" : digits > 6 ? "64px" : "76px") : digits > 9 ? "34px" : digits > 7 ? "42px" : digits > 5 ? "52px" : "";
+}
 function drawQr() {
   extraShown();
   clipShown();
@@ -810,18 +875,29 @@ function drawQr() {
   const amt = Number($("amount").value);
   const ok = amt >= C.minAmount;
   $("big").textContent = ok ? amt.toLocaleString("th-TH", { maximumFractionDigits: 2 }) : "–";
-  const digits = $("big").textContent.length;  // a big amount gets smaller dots so it fits a phone (1,000,000 is 9 wide)
-  const boss = ownAmount && amt >= 10000;  // from 10,000: as big as a phone allows, the moment of the page
-  $("big").style.fontSize = boss ? (digits > 7 ? "48px" : digits > 6 ? "64px" : "76px")
-                                 : digits > 9 ? "34px" : digits > 7 ? "42px" : digits > 5 ? "52px" : "";
+  $("big").style.fontSize = bigSize(amt);
   for (const b of $("quick").children) b.classList.toggle("on", !ownAmount && Number(b.dataset.amount) === amt);
-  amountHands();
+  amountHands(); slipRank();
   const q = qrcode(0, "M");
   q.addData(promptpayPayload(C.promptpay, ok ? amt : 0));
   q.make();
   $("qr").innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
 }
 $("amount").oninput = () => { ownAmount = true; drawQr(); };  // typing your own amount, even without a focus event
+const amountSpin = spinner("amountRow", "amountDice", prettyAmount, v => {  // just the number while it spins; the rest when caught
+  $("amount").value = v; $("big").textContent = v.toLocaleString("th-TH"); $("big").style.fontSize = bigSize(v);
+}, on => {
+  $("amount").readOnly = on; ownAmount = true;
+  if (on) {  // no chip picked and no hands while it spins: they come with the number caught
+    for (const b of $("quick").children) b.classList.remove("on");
+    const v = $("amount").value; $("amount").value = ""; amountHands(); $("amount").value = v;
+  }
+  $("amountLabel").textContent = on ? "กดลูกเต๋าซ้ำ = หมุนแรงขึ้น · แตะช่องยอดเพื่อจับ!" : `หรือใส่ยอดเอง (ขั้นต่ำ ${C.minAmount} บาท)`;
+  if (!on) drawQr();
+});
+const catchAmount = () => amountSpin.stop();
+$("amount").addEventListener("pointerdown", e => { if (catchAmount()) e.preventDefault(); });
+$("big").addEventListener("pointerdown", () => catchAmount());
 drawQr();
 
 function say(t, cls) { $("msg").textContent = t; $("msg").className = cls || ""; }
@@ -845,11 +921,10 @@ $("file").onchange = async () => {
   const file = $("file").files[0];
   slip = null; $("send").disabled = true;
   if (!file) return;
-  $("dropText").innerHTML = "";
-  const im = document.createElement("img");
-  im.src = URL.createObjectURL(file);
-  im.alt = "รูปสลิปที่เลือก";
-  $("dropText").appendChild(im);
+  $("dropText").innerHTML = '<span class="slipCard" id="slipCard"><span class="tilt" id="tilt"><span class="aura"></span><img alt="รูปสลิปที่เลือก">'
+    + '<span class="shine"></span><span class="rank" id="rank"></span></span></span>';
+  $("tilt").querySelector("img").src = URL.createObjectURL(file);
+  slipRank();
   say("กำลังตรวจสลิป…");
   const info = parseSlipQr(await readQr(file).catch(() => null));
   if (!info) return say("ไม่พบ QR ตรวจสอบสลิปในรูปนี้ กรุณาใช้สลิปจากแอปธนาคารที่มี QR", "bad");
@@ -857,6 +932,42 @@ $("file").onchange = async () => {
   say(`พบสลิป ${BANKS[info.bank] || "ธนาคาร " + info.bank} ✓`, "ok");
   $("send").disabled = false;
 };
+
+// the slip card's rank: the amount it is for
+const RANKS = [[100000, "SSS", "SSS"], [10000, "SS+", "SS"], [5000, "S", "S"], [1000, "A+", "Ap"], [300, "A", "A"], [100, "B", "B"], [0, "C", "C"]];
+function slipRank() {
+  const card = document.getElementById("slipCard");
+  if (!card) return;
+  const [, label, cls] = RANKS.find(([from]) => Number($("amount").value) >= from);
+  card.className = "slipCard r-" + cls + (card.classList.contains("held") ? " held" : "");
+  $("rank").textContent = label;
+}
+function tiltTo(x, y) {  // a point on the screen: the card leans toward it
+  const tilt = document.getElementById("tilt");
+  if (!tilt) return;
+  const r = tilt.getBoundingClientRect(), px = Math.max(-.5, Math.min(.5, (x - r.left) / r.width - .5)), py = Math.max(-.5, Math.min(.5, (y - r.top) / r.height - .5));
+  $("slipCard").classList.add("held");
+  tilt.style.setProperty("--ry", (px * 32).toFixed(1) + "deg"); tilt.style.setProperty("--rx", (-py * 24).toFixed(1) + "deg");
+  tilt.style.setProperty("--mx", (100 - (px + .5) * 100).toFixed(0) + "%");
+}
+function letGo() {
+  const card = document.getElementById("slipCard");
+  if (card) { card.classList.remove("held"); $("tilt").style.removeProperty("--rx"); $("tilt").style.removeProperty("--ry"); }
+}
+$("drop").addEventListener("pointermove", e => { if (e.pointerType === "mouse") tiltTo(e.clientX, e.clientY); });
+$("drop").addEventListener("pointerleave", letGo);
+$("drop").addEventListener("touchmove", e => tiltTo(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+$("drop").addEventListener("touchend", letGo);
+// a phone tilted in the hand tilts the card (Android; iPhone asks permission for this, so it just sways there)
+if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== "function") {
+  addEventListener("deviceorientation", e => {
+    const tilt = document.getElementById("tilt");
+    if (!tilt || e.gamma == null || $("slipCard").classList.contains("held")) return;
+    tilt.style.animation = "none";
+    tilt.style.setProperty("--ry", Math.max(-18, Math.min(18, e.gamma * .7)).toFixed(1) + "deg");
+    tilt.style.setProperty("--rx", Math.max(-14, Math.min(14, (45 - e.beta) * .4)).toFixed(1) + "deg");
+  });
+}
 
 // แน่ใจนะ? ส่งทั้งที่ยังไม่มีเสียงหรือคลิป (เลือกอัดเสียงไว้แต่ยังไม่อัด ก็ด้วย): เตือนครั้งเดียวก่อนส่ง
 const nudgeNeeded = () => !$("extraCard").hidden && (extra === "" || (extra === "voice" && !voice) || (extra === "clip" && !$("video").value.trim()));
@@ -877,7 +988,7 @@ $("nudgeImg").onerror = noMeme;
 if ($("nudgeImg").complete && !$("nudgeImg").naturalWidth) noMeme();
 for (const ch of FACE.join("")) { const d = document.createElement("b"); if (ch === "X") d.className = "on"; $("nudgeFace").appendChild(d); }
 $("send").onclick = () => {
-  catchName();  // sent mid-spin: the name on screen is the one
+  catchName(); catchAmount();  // sent mid-spin: what is on screen is the one
   if (who === "cool" && !$("name").value.trim()) { $("name").focus(); return say("พิมพ์ชื่อเบียวก่อน หรือกด ไม่บอกชื่อ", "bad"); }
   if ((who === "twitch" || who === "tiktok") && !twitchTyped().login) { $("twitch").focus(); return say("ใส่ชื่อบัญชีก่อน หรือกด ชื่อเบียว / ไม่บอกชื่อ", "bad"); }
   if (nudgeNeeded()) { $("nudge").hidden = false; return; }
