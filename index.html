@@ -278,6 +278,9 @@
   .laneHead .bin { color:#ff9aa9; }
   .lane canvas { width:100%; height:72px; display:block; cursor:ew-resize; touch-action:none; }
   .withBg { font-size:12px; color:#cfc5ef; }
+  /* two voices after Stop: the harmony above, the first voice below, mirrored on one time, to look at only */
+  .layersView { width:100%; background:var(--field); border:1px solid var(--field-line); border-radius:12px; padding:8px 10px; }
+  .layersView canvas { width:100%; height:92px; display:block; }
   /* paused: the whole take on the meter, a line to drag back to where to record again (what is after it goes) */
   .cutBar { display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; font-size:13px; color:#8ff0b8; }
   .cutBar.l2 { color:#c9b8ff; }
@@ -544,6 +547,7 @@
         <div class="row"><button type="button" id="voicePlay" aria-label="ฟังเสียงที่อัด">▶</button><canvas id="voiceShape" aria-label="กราฟเสียง แตะเพื่อข้ามไปตรงนั้น"></canvas></div>
         <div class="time"><span id="voiceNow">0:00</span><span id="voiceWith"></span><span id="voiceAll">0:00</span></div>
       </div>
+      <div class="layersView" id="layersView" hidden><canvas aria-label="เสียงประสานด้านบน เสียง 1 ด้านล่าง"></canvas></div>
       <div class="pair editRow"><button type="button" id="voiceAgain">Edit</button><button type="button" class="bin" id="voiceDrop" aria-label="ลบเสียง"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/><path d="M10 11v5.5M14 11v5.5"/></svg></button></div>
       <dialog class="ask" id="dropAsk"><b id="dropTitle">ลบเสียงนี้ไหม?</b><span id="dropWords">ลบแล้วต้องอัดใหม่ตั้งแต่ต้น</span><div class="pair"><button type="button" id="dropNo">ยกเลิก</button><button type="button" class="danger" id="dropYes">ลบเลย</button></div></dialog>
     </div>
@@ -1200,13 +1204,43 @@ async function voiceShape() {
   const buffer = await voiceMix();
   shape = { values: envelope(buffer), seconds: buffer.duration };
   $("voiceAll").textContent = clock(buffer.duration);
-  if (!play) drawShape();
+  if (!play) { drawShape(); drawLayers(); }
   return buffer;
+}
+// the two voices of a harmony mirrored: each lane's peaks (the quiet part kept low, so the shape shows), the line walking
+function lanePeaks(buffer, seconds, cols) {
+  const x = buffer.getChannelData(0), sr = buffer.sampleRate, out = [];
+  for (let i = 0; i < cols; i++) {
+    let m = 0;
+    for (let k = Math.round(seconds * i / cols * sr), e = Math.min(x.length, Math.round(seconds * (i + 1) / cols * sr)); k < e; k += 4) m = Math.max(m, Math.abs(x[k]));
+    out.push(m);
+  }
+  const sorted = [...out].sort((p, q) => p - q), low = sorted[Math.floor(cols * .15)], top = Math.max(sorted[cols - 1], low + 1e-4);
+  return out.map(v => Math.max(0, (v - low) / (top - low)));
+}
+function drawLayers(at = -1) {
+  const box = $("layersView"), two = voice && voice2 && voiceDecoded && voice2Decoded ? heardHarmony() : null;
+  box.hidden = !two;
+  if (!two) return;
+  const one = heardVoice(voice.withBg && voice.withBg === bgPick ? voice.delay : 0), cols = 120;
+  const seconds = Math.max(1, one.duration, two.duration), canvas = box.querySelector("canvas");
+  const { c, W, H, d } = fit(canvas), half = H / 2, step = W / cols, bw = Math.max(1.5 * d, step * .5);
+  c.clearRect(0, 0, W, H);
+  const lane = (values, color, up) => values.forEach((v, i) => {
+    const h = Math.max(2 * d, v * (half - 6 * d)), x = i * step + (step - bw) / 2;
+    c.fillStyle = color; c.beginPath();
+    c.roundRect ? c.roundRect(x, up ? half - 2 * d - h : half + 2 * d, bw, h, bw / 2) : c.rect(x, up ? half - 2 * d - h : half + 2 * d, bw, h);
+    c.fill();
+  });
+  lane(lanePeaks(two, seconds, cols), "#c9b8ff", true);
+  lane(lanePeaks(one, seconds, cols), "#8ff0b8", false);
+  c.fillStyle = "rgba(255,255,255,.08)"; c.fillRect(0, half - .5 * d, W, d);
+  if (at >= 0) { c.fillStyle = "#ff8fa3"; c.fillRect(Math.min(W - 2 * d, at / seconds * W), 0, 2 * d, H); }
 }
 function stopPreview() {
   if (play) { const p = play; play = null; if (p.source) try { p.source.stop(); } catch {} }
   $("voicePlay").textContent = "▶"; $("voiceNow").textContent = "0:00";
-  drawShape();
+  drawShape(); drawLayers();
 }
 async function playPreview(from = 0) {
   stopPreview(); stopBgTry();
@@ -1223,6 +1257,10 @@ async function playPreview(from = 0) {
       if (!play || play.source !== source) return;
       const t = a.currentTime - started;
       drawShape(Math.round(t / shape.seconds * COLS));
+      if (voice2) {  // the voices start after the background's lead, if any
+        const lead = bgPick && !(voice.withBg && voice.withBg === bgPick) ? +page.bg_lead || 0 : 0;
+        drawLayers(Math.max(0, t - lead));
+      }
       $("voiceNow").textContent = clock(Math.min(t, shape.seconds));
       requestAnimationFrame(walk);
     })();
