@@ -293,6 +293,14 @@
   .pair { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; }
   .pair button { height:44px; border-radius:12px; border:1px solid var(--field-line); background:var(--field); color:var(--ink); font:500 15px "Bai Jamjuree", sans-serif; cursor:pointer; }
   .vlabel { font-size:13px; color:var(--muted); align-self:flex-start; }
+  /* Edit wide, the bin small; deleting asks first (2026-10-18) */
+  .editRow { grid-template-columns:1fr 56px; }
+  .editRow .bin { display:flex; align-items:center; justify-content:center; color:#ff9aa9; }
+  .editRow .bin svg { width:20px; height:20px; }
+  .ask { background:var(--card); color:var(--ink); border:1px solid var(--field-line); border-radius:16px; padding:18px; width:min(320px, calc(100vw - 32px)); }
+  .ask::backdrop { background:rgba(0,0,0,.6); backdrop-filter:blur(3px); }
+  .ask b { display:block; font-size:16px; margin-bottom:4px; } .ask span { display:block; font-size:13px; color:var(--muted); margin-bottom:14px; }
+  .ask .danger { border-color:#7a2e3c; background:#2a1520; color:#ffb3c1; }
   .vchips { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; width:100%; }
   .vchips button { min-height:50px; border-radius:12px; border:1px solid var(--field-line); background:var(--field); color:var(--ink);
     font:500 13px "Bai Jamjuree", sans-serif; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:4px; }
@@ -518,7 +526,8 @@
         <canvas id="syncView" aria-label="เพลงด้านบน เสียงพูดด้านล่าง ลากเสียงพูดซ้ายขวาให้ตรงจังหวะ"></canvas>
         <div class="syncFoot"><button type="button" id="syncEarlier" aria-label="เลื่อนเสียงพูดไปทางซ้าย">◀</button><span>ลากแถวเสียงพูด (เขียว) ให้ยอดตรงกับเพลง (ม่วง) · กด ▶ ฟัง</span><button type="button" id="syncLater" aria-label="เลื่อนเสียงพูดไปทางขวา">▶</button></div>
       </div>
-      <div class="pair"><button type="button" id="voiceAgain">อัดใหม่</button><button type="button" id="voiceDrop">ลบเสียง</button></div>
+      <div class="pair editRow"><button type="button" id="voiceAgain">Edit</button><button type="button" class="bin" id="voiceDrop" aria-label="ลบเสียง"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/><path d="M10 11v5.5M14 11v5.5"/></svg></button></div>
+      <dialog class="ask" id="dropAsk"><b>ลบเสียงนี้ไหม?</b><span>ลบแล้วต้องอัดใหม่ตั้งแต่ต้น</span><div class="pair"><button type="button" id="dropNo">ยกเลิก</button><button type="button" class="danger" id="dropYes">ลบเลย</button></div></dialog>
       <div class="vlabel" id="fxLabel">เปลี่ยนเสียง <span class="opt">ไม่อยากใช้เสียงจริงก็ได้</span></div>
       <div class="vchips" id="fxChips"></div>
       <div class="hint">กดเลือกแล้วได้ยินตัวอย่าง · กด ▶ ฟังอีกรอบ</div>
@@ -1180,7 +1189,7 @@ function envelope(buffer) {
   const top = Math.max(...out, 1e-3);
   return out.map(v => Math.pow(v / top, .8));
 }
-const drawShape = (upTo = 0) => shape && bars($("voiceShape"), shape.values, upTo, "#9ad8ff", "#3d6690");  // blue, brighter where played
+const drawShape = (upTo = 0) => shape && bars($("voiceShape"), shape.values, upTo, "#8ff0b8", "#2f4a3c");  // green as recorded, brighter where played
 async function voiceShape() {
   if (!voice) return null;
   const buffer = await voiceMix();
@@ -1245,7 +1254,7 @@ $("voiceStart").onclick = async () => {
   const rec = recording = { recorder, stream, analyser, chunks: [], levels: [], withBg: "", file: 0, segment: 0, paused: false,
                             parts: [], cur: null, cut: 0 };
   recorder.ondataavailable = e => { if (e.data.size) rec.chunks.push(e.data); };
-  recorder.onstop = () => rec.again ? $("voiceStart").click() : finishVoice(rec);
+  recorder.onstop = () => { if (rec.again) $("voiceStart").click(); };
   // the background starts with the recording, so the voice lands on its beat
   const bed = bgPick ? await bgBuffer(bgPick) : null;
   if (recording !== rec) return;
@@ -1266,8 +1275,10 @@ $("voiceStart").onclick = async () => {
   };
   rec.segment = performance.now(); rec.cur = { r: 0, v: 0 };
   recorder.start(250);
-  voiceView("On"); say(""); recShown(rec);
-  const data = new Float32Array(analyser.fftSize);
+  voiceView("On"); say(""); recShown(rec); meter(rec);
+};
+function meter(rec) {
+  const data = new Float32Array(rec.analyser.fftSize), analyser = rec.analyser;
   (function frame() {
     if (recording !== rec) return;
     const t = keptTime(rec), left = page.voice_seconds - t;
@@ -1286,7 +1297,7 @@ $("voiceStart").onclick = async () => {
     }
     requestAnimationFrame(frame);
   })();
-};
+}
 // seconds in the file (paused time left out), and of the voice as kept
 const fileTime = rec => rec.file + (rec.paused ? 0 : (performance.now() - rec.segment) / 1000);
 const keptTime = rec => rec.paused || !rec.cur ? rec.end || 0 : rec.cur.v + (fileTime(rec) - rec.cur.r);
@@ -1366,6 +1377,7 @@ $("voicePause").onclick = () => {
     stopHear();
     rec.parts = keptParts(rec); rec.paused = false;
     rec.segment = performance.now(); rec.cur = { r: rec.file, v: rec.cut };
+    rec.stream.getTracks().forEach(t => { t.enabled = true; });
     if (rec.recorder.state === "paused") rec.recorder.resume();  // onresume starts the background at the cut
   }
   recShown(rec);
@@ -1415,25 +1427,43 @@ $("cutPlay").onclick = async () => {
     })();
   } catch { stopHear(); say("ฟังไม่ได้ตอนนี้ ลองอัดต่อหรือกดหยุดแล้วฟัง", "bad"); }
 };
+// stop: the take is done for now but kept paused (the mic muted), so Edit can take it up again; what is after the line
+// (when stopped while paused) is left out
+let editing = null;
 function stopVoice() {
   const rec = recording;
   if (!rec) return;
-  if (!rec.paused) closePart(rec);
-  rec.parts = keptParts(rec.paused ? rec : { ...rec, cut: rec.end });
+  if (!rec.paused) {
+    closePart(rec); rec.paused = true; rec.cut = rec.end;
+    if (rec.recorder.state === "recording") rec.recorder.pause();
+  }
+  rec.parts = keptParts(rec); rec.end = rec.cut;
+  rec.levels.length = Math.min(rec.levels.length, Math.ceil(rec.cut / LIVE_STEP));
   rec.seconds = Math.min(page.voice_seconds, rec.parts.reduce((s, p) => s + p.len, 0));
-  recording = null; stopHear();
+  recording = null; stopHear(); bedStop(rec);
+  rec.stream.getTracks().forEach(t => { t.enabled = false; });
+  editing = rec;
+  rec.recorder.addEventListener("dataavailable", () => finishVoice(rec), { once: true });
+  rec.recorder.requestData();  // what was recorded so far, then the voice is made of it
+}
+function endTake(rec) {  // the take is over for good: the recorder stops and the mic is let go
+  if (!rec) return;
   bedStop(rec);
-  if (rec.recorder.state !== "inactive") rec.recorder.stop();
+  try { if (rec.recorder.state !== "inactive") rec.recorder.stop(); } catch {}
   rec.stream.getTracks().forEach(t => t.stop());
 }
 $("voiceStop").onclick = stopVoice;
-$("voiceRedo").onclick = () => { if (recording) { recording.again = true; stopVoice(); } };
+$("voiceRedo").onclick = () => {
+  const rec = recording; if (!rec) return;
+  rec.again = true; recording = null; stopHear(); endTake(rec);  // onstop starts a new take
+};
 function finishVoice(rec) {
+  if (editing !== rec) return;  // dropped or taken up again meanwhile
   const seconds = rec.seconds ?? 0;
   const type = (rec.recorder.mimeType || (rec.chunks[0] && rec.chunks[0].type) || "audio/webm").split(";")[0];
   const blob = new Blob(rec.chunks, { type });
-  if (!blob.size || seconds < .5) { voiceView("Idle"); return say("เสียงสั้นเกินไป ลองอัดใหม่", "bad"); }
-  if (blob.size > 2000000) { voiceView("Idle"); return say("ไฟล์เสียงใหญ่เกิน ลองอัดให้สั้นลง", "bad"); }
+  if (!blob.size || seconds < .5) { editing = null; endTake(rec); voiceView("Idle"); return say("เสียงสั้นเกินไป ลองอัดใหม่", "bad"); }
+  if (blob.size > 2000000) { editing = null; endTake(rec); voiceView("Idle"); return say("ไฟล์เสียงใหญ่เกิน ลองอัดให้สั้นลง", "bad"); }
   const ext = /mp4|aac|m4a/.test(type) ? "m4a" : /ogg/.test(type) ? "ogg" : "webm";
   // one part from the file's start: nothing was cut, nothing to send; else what of the file is kept, in order
   const parts = rec.parts.length === 1 && rec.parts[0].r < 0.01 ? null : rec.parts.map(p => [Math.round(p.r * 100) / 100, Math.round((p.r + p.len) * 100) / 100]);
@@ -1444,6 +1474,7 @@ function finishVoice(rec) {
 }
 function dropVoice() {
   stopPreview();
+  if (editing) { endTake(editing); editing = null; }
   if (voice) URL.revokeObjectURL(voice.url);
   voice = null; voiceDecoded = null; shape = null; voiceView("Idle"); voiceChoices();
 }
@@ -1455,8 +1486,19 @@ $("voiceShape").onclick = e => {  // a tap on the graph jumps there
 };
 addEventListener("resize", () => { if (!play) drawShape(); });
 loadPage();
-$("voiceAgain").onclick = () => $("voiceStart").click();
-$("voiceDrop").onclick = dropVoice;
+// Edit: back to the paused take, its timeline and line, to play, cut and record on in the same file
+$("voiceAgain").onclick = () => {
+  const rec = editing;
+  if (!rec) return $("voiceStart").click();
+  stopPreview();
+  if (voice) URL.revokeObjectURL(voice.url);
+  voice = null; voiceDecoded = null; shape = null; editing = null;
+  recording = rec; rec.paused = true; rec.cut = rec.end;
+  voiceView("On"); say(""); recShown(rec); meter(rec);
+};
+$("voiceDrop").onclick = () => { stopPreview(); $("dropAsk").showModal(); };
+$("dropNo").onclick = () => $("dropAsk").close();
+$("dropYes").onclick = () => { $("dropAsk").close(); dropVoice(); };
 const randomId = () => [...crypto.getRandomValues(new Uint8Array(12))].map(b => b.toString(16).padStart(2, "0")).join("");
 
 function bigSize(amt) {
