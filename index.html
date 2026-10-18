@@ -498,7 +498,7 @@
       <div class="cutBar" id="cutBar" hidden>
         <button type="button" id="cutBack" aria-label="ถอยจุดพากใหม่ 0.5 วิ">◀</button>
         <span id="cutText"></span>
-        <button type="button" class="hear" id="cutPlay" aria-label="ฟังจากเส้น เส้นเดินตามเสียง">▶ ฟังจากเส้น</button>
+        <button type="button" class="hear" id="cutPlay" aria-label="ฟังจากเส้น เส้นเดินตามเสียง">▶ Play</button>
       </div>
       <div class="withBg" id="recBg" hidden></div>
       <div class="recBtns">
@@ -1389,7 +1389,7 @@ $("cutBack").onclick = () => { if (recording && recording.paused) { stopHear(); 
 let hearing = null;
 function stopHear() {
   if (hearing) { const h = hearing; hearing = null; h.sources.forEach(s => { try { s.stop(); } catch {} }); }
-  $("cutPlay").textContent = "▶ ฟังจากเส้น";
+  $("cutPlay").textContent = "▶ Play";
 }
 $("cutPlay").onclick = async () => {
   const rec = recording; if (!rec || !rec.paused) return;
@@ -1406,7 +1406,7 @@ $("cutPlay").onclick = async () => {
     voiceSrc.start(0, from);
     const mine = hearing = { sources }, started = a.currentTime - from;
     voiceSrc.onended = () => { if (hearing === mine) stopHear(); };
-    $("cutPlay").textContent = "■ หยุดตรงนี้";
+    $("cutPlay").textContent = "■ Stop";
     (function walk() {
       if (hearing !== mine || recording !== rec) return;
       rec.cut = Math.min(rec.end, Math.round((a.currentTime - started) * 20) / 20);
