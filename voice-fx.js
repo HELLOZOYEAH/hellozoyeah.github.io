@@ -113,14 +113,32 @@
       default: return Float32Array.from(x);
     }
   }
-  // ดังเท่ากันทุกเสียง (ใกล้ loudnorm -16 ของแอป) แล้วกดยอดไม่ให้เกินเพดาน
-  function even(x) {
+  // ดังเท่ากับเสียงอื่นแบบเดียวกับแอป (voice.py level 'gentle', 2026-10-18): เพิ่มลดทั้งคลิปทีเดียว เสียงดังเบาตามจริง
+  // แล้ว Limiter นุ่ม ๆ กดเฉพาะช่วงที่ดังเกิน -1 dB (ลงใน 5 ms ก่อนถึงยอด คืนใน 150 ms) ไม่ตัดคลื่นทีละจุด
+  function even(x, sr) {
     let sum = 0, n = 0;
     for (const v of x) if (Math.abs(v) > 0.003) { sum += v * v; n++; }
-    const gain = n ? 0.12 / Math.sqrt(sum / n) : 1, out = new Float32Array(x.length);
-    for (let i = 0; i < x.length; i++) {
-      const v = x[i] * gain, a = Math.abs(v);
-      out[i] = Math.sign(v) * (a > 0.7 ? Math.min(0.98, 0.7 + (a - 0.7) * 0.2) : a);
+    if (!n) return Float32Array.from(x);
+    const gain = Math.min(30, 0.25 / Math.sqrt(sum / n)), top = 0.89;
+    const B = Math.max(1, Math.round(sr / 1000)), count = Math.ceil(x.length / B), need = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      let m = 0;
+      for (let k = i * B; k < Math.min(x.length, (i + 1) * B); k++) m = Math.max(m, Math.abs(x[k] * gain));
+      need[i] = m > top ? top / m : 1;
+    }
+    const smooth = new Float32Array(count), back = 1 - Math.exp(-1 / 150);
+    let g = 1;
+    for (let i = 0; i < count; i++) {
+      let want = 1;
+      for (let j = i; j <= Math.min(count - 1, i + 5); j++) want = Math.min(want, need[j]);
+      g = want < g ? want : g + (want - g) * back;
+      smooth[i] = g;
+    }
+    const out = new Float32Array(x.length);
+    for (let k = 0; k < x.length; k++) {
+      const at = Math.min(count - 1, Math.max(0, k / B - 0.5)), i = Math.floor(at), f = at - i;
+      const level = smooth[i] + ((smooth[Math.min(count - 1, i + 1)] || smooth[i]) - smooth[i]) * f;
+      out[k] = Math.max(-top, Math.min(top, x[k] * gain * level));
     }
     return out;
   }
@@ -132,7 +150,7 @@
   // ทั้งชุดตามที่ OBS เล่น: BG ขึ้นก่อน lead วิ → เสียงคน (BG เบาลงเหลือ duck%) → BG จาง 1.5 วิ
   function render(voiceBuffer, effect, bgBuffer, s, ctx) {
     const sr = voiceBuffer.sampleRate, seconds = Math.max(1, +s.voice_seconds || 10);
-    const voice = even(apply(effect, mono(voiceBuffer).slice(0, Math.round(seconds * sr)), sr));
+    const voice = even(apply(effect, mono(voiceBuffer).slice(0, Math.round(seconds * sr)), sr), sr);
     const vGain = Math.max(0, Math.min(1, (s.voice_volume != null ? s.voice_volume : 80) / 100));
     const bg = bgBuffer ? mono(bgBuffer) : null;
     const lead = bg ? Math.round(Math.max(0, Math.min(3, +s.bg_lead || 0)) * sr) : 0, tail = bg ? Math.round(1.5 * sr) : 0;
