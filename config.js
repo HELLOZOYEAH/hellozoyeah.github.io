@@ -3,7 +3,7 @@ window.DONATE_CONFIG = {
   channelName: "hellosoyeah",
   promptpay: "0850235251",      // เบอร์พร้อมเพย์ (หรือเลขบัตร 13 หลัก)
   minAmount: 20,
-  videoMinAmount: 50,  // ส่งคลิป YouTube ได้ตั้งแต่ยอดนี้ (ต้องตรงกับ ACEACE และ setup-video.sql)
+  videoMinAmount: 20,  // ส่งคลิปได้ตั้งแต่ยอดนี้ · ACEACE ตั้งเองได้ผ่าน Supabase (setup-voice-fx.sql) · เสียงหรือคลิปได้อย่างเดียว
   videoSeconds: 30,
   voiceMinAmount: 20,  // อัดเสียงให้ ACE เปิดได้ตั้งแต่ยอดนี้ (ต้องรัน setup-voice.sql ก่อน · ตรงกับ ACEACE: เสียงจากคนโดเนต)
   voiceSeconds: 10,    // อัดได้นานสุด (วินาที) · ACEACE ตัดที่ความยาวที่ตั้งในแอปอีกชั้น

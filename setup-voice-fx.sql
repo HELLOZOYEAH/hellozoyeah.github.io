@@ -93,7 +93,8 @@ grant execute on function public.ace_drop_bg(text, text) to anon;
 grant execute on function public.ace_put_page(text, jsonb) to anon;
 grant execute on function public.ace_check_key(text) to anon;
 
--- เหมือน setup-voice.sql ทุกข้อ เพิ่มแค่: ชื่อเอฟเฟกต์ (a-z ยาว 2-12) และรหัส BG (a-z 0-9 ยาว 6-24) หรือไม่ใส่ · ได้เฉพาะเมื่อมีเสียง
+-- เหมือน setup-voice.sql เพิ่ม: ชื่อเอฟเฟกต์ (a-z ยาว 2-12) และรหัส BG (a-z 0-9 ยาว 6-24) ได้เฉพาะเมื่อมีเสียง
+-- และ (2026-10-18) ส่งคลิปได้ตั้งแต่ 20 บาท · เสียงหรือคลิปได้อย่างใดอย่างหนึ่ง ไม่ส่งทั้งคู่
 drop policy if exists "anyone can submit slip" on public.slips;
 create policy "anyone can submit slip" on public.slips for insert to anon
   with check (
@@ -106,7 +107,7 @@ create policy "anyone can submit slip" on public.slips for insert to anon
     and (twitch is null or tiktok is null)
     and (
       video_url is null
-      or (amount >= 50
+      or (amount >= 20
           and (video_url ~ '^https://youtu\.be/[A-Za-z0-9_-]{11}$'
                or video_url ~ '^https://www\.tiktok\.com/embed/v2/[0-9]{8,25}$'
                or video_url ~ '^https://(vm|vt)\.tiktok\.com/[A-Za-z0-9]{5,20}/$'
@@ -117,6 +118,7 @@ create policy "anyone can submit slip" on public.slips for insert to anon
     and (voice_path is null or voice_path ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}/[A-Za-z0-9]{10,40}\.(webm|m4a|mp4|ogg)$')
     and (voice_effect is null or (voice_path is not null and voice_effect ~ '^[a-z]{2,12}$'))
     and (voice_bg is null or (voice_path is not null and voice_bg ~ '^[a-z0-9]{6,24}$'))
+    and (video_url is null or voice_path is null)
   );
 
 create or replace function public.slip_to_alert() returns trigger

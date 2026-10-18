@@ -1,9 +1,9 @@
 // เปลี่ยนเสียงในเบราว์เซอร์ ให้ตรงกับที่ ACEACE ทำจริงบนสตรีม (aceace/donations/voice.py EFFECTS)
 // คนโดเนตกดฟังก่อนส่ง: เอฟเฟกต์ → ปรับดังเท่ากัน → เสียงพื้นหลังคลอใต้ (ขึ้นก่อน เบาลงตอนพูด จางหายตอนจบ)
 (function () {
-  const NAMES = { vibrato: "เสียงสั่น", real: "เสียงจริง", chipmunk: "ชิปมังก์", giant: "ยักษ์", robot: "หุ่นยนต์",
+  const NAMES = { real: "ต้นฉบับ", vibrato: "เสียงสั่น", chipmunk: "ชิปมังก์", giant: "ยักษ์", robot: "หุ่นยนต์",
                   cave: "ถ้ำ", radio: "วิทยุ", game: "เกม 8-bit", underwater: "ใต้น้ำ", reverse: "ย้อนหลัง" };
-  const HINTS = { vibrato: "แนะนำ", real: "ไม่เปลี่ยน", chipmunk: "สูงเล็ก", giant: "ต่ำทุ้ม", robot: "โรบอท",
+  const HINTS = { real: "ไม่เปลี่ยน", vibrato: "แนะนำ", chipmunk: "สูงเล็ก", giant: "ต่ำทุ้ม", robot: "โรบอท",
                   cave: "ก้องสะท้อน", radio: "เหมือนโทรมา", game: "แตกแบบเกม", underwater: "อู้อี้", reverse: "ถอยหลัง" };
 
   // FFmpeg vibrato: เส้นหน่วง 5 ms ที่ความหน่วงแกว่งตามคลื่น sine ระหว่าง 0 ถึง depth x 5 ms

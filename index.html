@@ -79,7 +79,7 @@
   .mic.on { background:#3a1420; border-color:#ff5d7a; animation:ring 1.2s ease-out infinite; }
   @keyframes ring { 0% { box-shadow:0 0 0 0 rgba(255,93,122,.5); } 100% { box-shadow:0 0 0 18px rgba(255,93,122,0); } }
   #voiceCount { font-size:38px; line-height:1; color:#ff8fa3; }
-  #voiceWave { width:100%; height:46px; display:block; }
+  #voiceWave { width:100%; height:110px; display:block; }
   .player { display:flex; align-items:center; gap:10px; width:100%; background:var(--field); border:1px solid var(--field-line); border-radius:12px; padding:8px 10px; }
   .player button { width:32px; height:32px; flex:none; border-radius:50%; border:1px solid var(--accent-line); background:var(--accent-deep); color:var(--accent); cursor:pointer; font-size:13px; }
   .player canvas { flex:1; min-width:0; height:30px; }
@@ -126,21 +126,17 @@
     </div>
     </div>
     <label for="text">ข้อความ (ไม่เกิน 255 ตัว)</label>
-    <textarea id="text" maxlength="255" placeholder="ACE วันนี้กินข้าวหรือยัง"></textarea>
+    <textarea id="text" maxlength="255" placeholder="ไหนอยากบอกอะไรว่ามาซิ"></textarea>
   </section>
 
-  <section class="card">
-    <div class="step"><span class="dots">02</span>เลือกยอดแล้วสแกนพร้อมเพย์</div>
-    <div class="big"><div class="dots" id="big">0</div><span>บาท</span></div>
-    <div class="quick" id="quick"></div>
-    <label for="amount" id="amountLabel">หรือใส่ยอดเอง</label>
-    <input id="amount" type="number" inputmode="decimal" step="1">
-    <div class="qrbox"><div id="qr"></div></div>
-    <div class="hint">สแกนด้วยแอปธนาคาร ยอดขึ้นให้เอง ไม่ต้องพิมพ์</div>
+  <section class="card" id="extraCard" hidden>
+    <div class="step"><span class="dots">+</span>ส่งเสียงหรือคลิปให้ ACE <span class="opt">เลือกได้ 1 อย่าง</span></div>
+    <div class="vchips" id="extraChips"></div>
+    <div class="hint" id="extraHint"></div>
   </section>
 
   <section class="card" id="clipCard" hidden>
-    <div class="step"><span class="dots">+</span>ส่งคลิป TikTok หรือ YouTube ให้ ACE เปิดปิดท้าย (ไม่บังคับ)</div>
+    <div class="step"><span class="dots">+</span>ส่งคลิป TikTok หรือ YouTube ให้ ACE เปิดปิดท้าย</div>
     <label for="video">ลิงก์ TikTok หรือ YouTube</label>
     <input id="video" inputmode="url" placeholder="https://vt.tiktok.com/... หรือ https://youtu.be/..." autocomplete="off">
     <label for="vstart">เริ่มที่ (ไม่ใส่ = TikTok: ต้นคลิป · YouTube: ช่วงที่คนดูซ้ำมากที่สุด)</label>
@@ -149,7 +145,7 @@
   </section>
 
   <section class="card" id="voiceCard" hidden>
-    <div class="step"><span class="dots">+</span>อัดเสียงให้ ACE เปิด <span class="opt">ไม่บังคับ</span></div>
+    <div class="step"><span class="dots">+</span>อัดเสียงให้ ACE เปิด</div>
     <div class="rec" id="voiceIdle">
       <button type="button" class="mic" id="voiceStart" aria-label="เริ่มอัดเสียง"><svg viewBox="0 0 24 24" fill="none" stroke="#b9a6ff" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
       <div class="hint" id="voiceHint"></div>
@@ -157,7 +153,7 @@
     <div class="rec" id="voiceOn" hidden>
       <button type="button" class="mic on" id="voiceStop" aria-label="หยุดอัด"><svg viewBox="0 0 24 24" fill="#ff8fa3" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>
       <div class="dots" id="voiceCount"></div>
-      <canvas id="voiceWave" width="600" height="92"></canvas>
+      <canvas id="voiceWave" width="600" height="220"></canvas>
       <div class="hint">แตะอีกครั้งเพื่อหยุด · ครบเวลาหยุดเอง</div>
     </div>
     <div class="rec" id="voiceDone" hidden>
@@ -170,6 +166,16 @@
       <div class="hint">กดเลือกแล้วได้ยินตัวอย่าง · กด ▶ ฟังอีกรอบ</div>
     </div>
     <div class="warn">เสียงนี้จะออกในสตรีม · ด่าได้แต่อย่าแรง</div>
+  </section>
+
+  <section class="card">
+    <div class="step"><span class="dots">02</span>เลือกยอดแล้วสแกนพร้อมเพย์</div>
+    <div class="big"><div class="dots" id="big">0</div><span>บาท</span></div>
+    <div class="quick" id="quick"></div>
+    <label for="amount" id="amountLabel">หรือใส่ยอดเอง</label>
+    <input id="amount" type="number" inputmode="decimal" step="1">
+    <div class="qrbox"><div id="qr"></div></div>
+    <div class="hint">สแกนด้วยแอปธนาคาร ยอดขึ้นให้เอง ไม่ต้องพิมพ์</div>
   </section>
 
   <section class="card">
@@ -295,11 +301,30 @@ function parseClip(link) {
   const yt = parseYoutube(link);
   return yt ? { url: "https://youtu.be/" + yt.id, start: yt.start } : parseTiktok(link);
 }
+// เสียงหรือคลิป อย่างใดอย่างหนึ่ง (2026-10-18): เลือกก่อน แล้วการ์ดของอันที่เลือกค่อยโผล่
+let extra = "";
+const clipAllowed = () => !!(page.video_min && Number($("amount").value) >= page.video_min);
+const voiceAllowed = () => voiceOn() && Number($("amount").value) >= page.voice_min;
+function extraShown() {
+  const can = [["", "ไม่ส่ง", ""], ...(voiceAllowed() ? [["voice", "อัดเสียง", `ไม่เกิน ${page.voice_seconds} วิ`]] : []),
+               ...(clipAllowed() ? [["clip", "ส่งคลิป", "TikTok / YouTube"]] : [])];
+  if (!can.some(c => c[0] === extra)) extra = "";
+  $("extraCard").hidden = can.length < 2;
+  const box = $("extraChips"); box.innerHTML = "";
+  for (const [key, name, hint] of can) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = key === extra ? "on" : "";
+    b.append(name); if (hint) { const s = document.createElement("small"); s.textContent = hint; b.append(s); }
+    b.onclick = () => { extra = key; if (key !== "voice") stopPreview(); drawQr(); };
+    box.appendChild(b);
+  }
+  $("extraHint").textContent = "ACE เปิดในจอหลังอ่านโดเนต · เจ้าของช่องกดตัดได้ถ้าไม่เหมาะ";
+}
 function clipShown() {
-  const on = Number($("amount").value) >= C.videoMinAmount;
+  const on = clipAllowed() && extra === "clip";
   $("clipCard").hidden = !on;
   $("clipHint").className = "hint";
-  $("clipHint").textContent = `ยอด ${C.videoMinAmount} บาทขึ้นไป · ACE เปิดในจอหลังอ่านโดเนต ${C.videoSeconds} วินาที · เจ้าของช่องกดตัดได้ถ้าไม่เหมาะ`;
+  $("clipHint").textContent = `ACE เปิดในจอหลังอ่านโดเนต ${page.video_seconds} วินาที · เจ้าของช่องกดตัดได้ถ้าไม่เหมาะ`;
   return on;
 }
 
@@ -310,6 +335,7 @@ let voice = null;      // { blob, type, ext, seconds, url }
 let recording = null;  // { recorder, stream, ac, analyser, chunks, levels, started, seconds }
 // ค่าตั้งเสียงกับรายการเสียงพื้นหลังมาจาก Supabase (setup-voice-fx.sql · ACEACE แก้ได้เอง ไม่ต้อง push) · ยังไม่มี = ใช้ config.js
 const page = { voice: true, voice_min: C.voiceMinAmount, voice_seconds: C.voiceSeconds, effects: Object.keys(VoiceFx.NAMES),
+               video_min: C.videoMinAmount, video_seconds: C.videoSeconds,
                voice_volume: 80, bg_volume: 40, bg_lead: 1, bg_duck: 30 };
 let bgs = [], fxPick = "", bgPick = "", audioCtx = null, previewNode = null, voiceDecoded = null;
 const bgCache = {};
@@ -325,7 +351,7 @@ async function loadPage() {
   page.effects = (Array.isArray(page.effects) ? page.effects : []).filter(e => e in VoiceFx.NAMES);
   if (!page.effects.includes(fxPick)) fxPick = page.effects[0] || "";
   if (!bgs.some(b => b.id === bgPick)) bgPick = "";
-  voiceChoices(); voiceShown();
+  voiceChoices(); drawQr();
 }
 function voiceChoices() {
   const fill = (box, items, picked, pick) => {
@@ -380,7 +406,7 @@ async function playPreview() {
 }
 const voiceOn = () => !!(page.voice && page.voice_min && page.voice_seconds && window.MediaRecorder && navigator.mediaDevices);
 function voiceShown() {
-  const on = voiceOn() && Number($("amount").value) >= page.voice_min;
+  const on = voiceAllowed() && extra === "voice";
   $("voiceCard").hidden = !on;
   $("voiceHint").textContent = `แตะเพื่ออัด · ยาวได้ ${page.voice_seconds} วิ · ยอด ${page.voice_min} บาทขึ้นไป`;
   if (!on && recording) stopVoice();
@@ -407,13 +433,14 @@ $("voiceStart").onclick = async () => {
   const type = VOICE_TYPES.find(t => MediaRecorder.isTypeSupported(t)) || "";
   const recorder = new MediaRecorder(stream, type ? { mimeType: type } : {});
   const ac = new (window.AudioContext || window.webkitAudioContext)(), analyser = ac.createAnalyser();
-  analyser.fftSize = 1024; ac.createMediaStreamSource(stream).connect(analyser);
+  analyser.fftSize = 1024; analyser.minDecibels = -90; analyser.maxDecibels = -25; analyser.smoothingTimeConstant = 0.55;
+  ac.createMediaStreamSource(stream).connect(analyser);
   const rec = recording = { recorder, stream, ac, analyser, chunks: [], levels: [], started: performance.now() };
   recorder.ondataavailable = e => { if (e.data.size) rec.chunks.push(e.data); };
   recorder.onstop = () => finishVoice(rec);
   recorder.start(250);
   voiceView("On"); say("");
-  const data = new Float32Array(analyser.fftSize);
+  const data = new Float32Array(analyser.fftSize), freq = new Uint8Array(analyser.frequencyBinCount), bars = [];
   (function frame() {
     if (recording !== rec) return;
     const left = page.voice_seconds - (performance.now() - rec.started) / 1000;
@@ -422,8 +449,17 @@ $("voiceStart").onclick = async () => {
     analyser.getFloatTimeDomainData(data);
     let sum = 0; for (const x of data) sum += x * x;
     rec.levels.push(Math.min(1, Math.sqrt(sum / data.length) * 4));
-    const last = rec.levels.slice(-40);
-    dotsWave($("voiceWave"), Array(40 - last.length).fill(0).concat(last), "#ff8fa3");
+    // each column a band of the voice (low in the middle, high toward both edges): up at once, down softly
+    analyser.getByteFrequencyData(freq);
+    const half = 12, bin = ac.sampleRate / analyser.fftSize;
+    for (let j = 0; j < half; j++) {
+      const lo = 80 * Math.pow(5000 / 80, j / half), hi = 80 * Math.pow(5000 / 80, (j + 1) / half);
+      let sum = 0, n = 0;
+      for (let b = Math.floor(lo / bin); b <= Math.ceil(hi / bin) && b < freq.length; b++) { sum += freq[b]; n++; }
+      const v = n ? Math.max(0, Math.min(1, (sum / n / 255 - 0.25) / 0.7 * (1 + 0.5 * j / half))) ** 1.5 : 0;
+      bars[j] = Math.max(v, (bars[j] || 0) * 0.86);
+    }
+    dotsWave($("voiceWave"), [...bars.slice().reverse(), ...bars], "#ff8fa3");
     requestAnimationFrame(frame);
   })();
 };
@@ -462,6 +498,7 @@ $("voiceDrop").onclick = dropVoice;
 const randomId = () => [...crypto.getRandomValues(new Uint8Array(12))].map(b => b.toString(16).padStart(2, "0")).join("");
 
 function drawQr() {
+  extraShown();
   clipShown();
   voiceShown();
   const amt = Number($("amount").value);
