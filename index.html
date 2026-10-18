@@ -151,20 +151,22 @@
   .drop { display:flex; flex-direction:column; align-items:center; gap:8px; border:1.5px dashed var(--accent-line); border-radius:14px; padding:24px 16px; color:var(--muted); font-size:14px; text-align:center; cursor:pointer; }
   .drop img { max-width:100%; max-height:240px; border-radius:10px; }
 
-  #send { height:56px; border:0; border-radius:16px; background:var(--accent); color:#120f1c; font:600 18px "Bai Jamjuree", sans-serif; cursor:pointer; box-shadow:0 0 24px rgba(185,166,255,.35); }
-  #send:disabled { background:#2a2733; color:#7d7a88; box-shadow:none; cursor:default; }
-  /* the last step glows in the aura your amount has (green, gold, rainbow, pink, platinum), a slow breath */
+  /* dark inside like the amount chips, only the edge and the words glow (option A, docs/mockups/donation-send-colors.html) */
+  #send { height:56px; border:2px solid var(--accent); border-radius:16px; background:#15121f; color:#e4dbff; font:600 18px "Bai Jamjuree", sans-serif;
+    cursor:pointer; box-shadow:0 0 18px rgba(185,166,255,.25); }
+  #send:disabled { border-color:var(--field-line); background:#1a1922; color:#7d7a88; box-shadow:none; cursor:default; }
+  /* the edge, words and a slow breath of light take your amount's aura; the higher, the stronger: green and gold stay
+     a thin line, rainbow (5,000 up) gets the thick running edge and the big glow */
   #send[data-aura]:not(:disabled) { animation:aura 1.6s ease-in-out infinite; }
-  #send[data-aura="wow"] { --aura:#5fd38f; --aura-soft:rgba(95,211,143,.6); --aura-two:rgba(95,211,143,.3); }
-  #send[data-aura="gold"] { --aura:#ffc857; --aura-soft:rgba(255,200,87,.7); --aura-two:rgba(255,160,40,.35); }
-  #send[data-aura="love"] { --aura:#ff8fc8; --aura-soft:rgba(255,143,200,.7); --aura-two:rgba(255,100,170,.35); }
-  #send[data-aura="plat"] { --aura:#eef2fa; --aura-soft:rgba(235,240,250,.65); --aura-two:rgba(200,215,240,.3); }
-  #send[data-aura="rainbow"] { --aura:transparent; --aura-soft:rgba(255,122,182,.6); --aura-two:rgba(122,200,255,.45); border:3px solid transparent;
-    background:linear-gradient(var(--accent), var(--accent)) padding-box, linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6) border-box;
+  #send[data-aura="wow"] { border-width:1px; border-color:#5fd38f; color:#c8f5da; --aura-soft:rgba(95,211,143,.3); --aura-two:rgba(95,211,143,.12); }
+  #send[data-aura="gold"] { border-width:1px; border-color:#ffc857; color:#ffe08a; --aura-soft:rgba(255,200,87,.35); --aura-two:rgba(255,160,40,.14); }
+  #send[data-aura="love"] { border-color:#ff8fc8; color:#ffd3ea; --aura-soft:rgba(255,143,200,.5); --aura-two:rgba(255,100,170,.25); }
+  #send[data-aura="plat"] { border-color:#eef2fa; color:#fff; --aura-soft:rgba(235,240,250,.5); --aura-two:rgba(200,215,240,.25); }
+  #send[data-aura="rainbow"] { border-color:transparent; color:#fff; --aura-soft:rgba(255,122,182,.6); --aura-two:rgba(122,200,255,.45);
+    background:linear-gradient(#15121f, #15121f) padding-box, linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6) border-box;
     background-size:100% 100%, 300% 100%; }
   #send[data-aura="rainbow"]:not(:disabled) { animation:aura 1.6s ease-in-out infinite, rainbow 2.4s linear infinite; }
-  @keyframes aura { 0%, 100% { box-shadow:0 0 0 2px var(--aura), 0 0 18px var(--aura-soft), 0 0 36px var(--aura-two); }
-    50% { box-shadow:0 0 0 2px var(--aura), 0 0 30px var(--aura-soft), 0 0 64px var(--aura-two); } }
+  @keyframes aura { 0%, 100% { box-shadow:0 0 12px var(--aura-soft), 0 0 26px var(--aura-two); } 50% { box-shadow:0 0 22px var(--aura-soft), 0 0 50px var(--aura-two); } }
   #msg { min-height:1.4em; text-align:center; font-size:14px; }
   .ok { color:var(--ok); } .bad { color:var(--bad); }
   .foot { text-align:center; font-size:12px; color:var(--dim); }
