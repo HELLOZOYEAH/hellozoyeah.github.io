@@ -706,15 +706,22 @@ const COOL_NAMES = ["จอมมารแห่งความมืด", "ร�
   "นักดาบสายลมเหนือ", "ผู้ถือกุญแจแห่งมิติ", "จักรพรรดิผู้ไร้บัลลังก์", "นักรบแห่งรุ่งอรุณสุดท้าย", "ผู้เฝ้าประตูนรกขั้นที่เก้า", "ดวงตาสีเลือดแห่งโชคชะตา", "เจ้าแห่งพันธนาการนิรันดร์", "นักบุญแห่งความมืด", "ผู้ล่ามังกรรุ่นสุดท้าย",
   "ทายาทราชวงศ์ที่สาบสูญ", "อสูรผู้เดียวดายในหอคอย", "ผู้ควบคุมกาลเวลา", "จอมขมังเวทแห่งบึงหมอก", "นักธนูแห่งแสงจันทร์", "วิญญาณพเนจรแห่งทุ่งดอกไม้", "ผู้พิชิตบอสด้วยมือเปล่า", "ผู้ตื่นรู้หลังเที่ยงคืน", "เงาสะท้อนแห่งจักรวาลคู่ขนาน",
   "เทพแห่งการเลื่อนนาฬิกาปลุก", "จอมมารผู้กลัวแมลงสาบ", "ราชาแห่งหมูกระทะ", "อัศวินผู้แพ้ทางชาไข่มุก", "ผู้ถูกเลือกให้ล้างจาน", "นักเวทผู้ลืมรหัส Wi-Fi", "ปีศาจแห่งโปรกลางเดือน", "เทพเจ้าแห่งการกดกาชา", "ราชันย์ไร้เทียมทานแห่งเตียงนอน"];
-// a die: each tap adds about a second of full spin; it never stops by itself (3 a second at least) until caught
+// a die: the first tap spins it about 2.7 s, each more tap about 1.3 s more; with no power left it slows down for COAST
+// seconds and stops by itself (2026-10-18: some like to watch it land), unless caught first or tapped back up
 let rolling = null, rollClose = 0;  // the spinner on screen
+const COAST = 2.5;
 function spinner(rowId, buttonId, pick, show, changed, kind, say) {
-  const row = $(rowId), s = { power: 0, timer: 0, last: 0, prev: null };
+  const row = $(rowId), s = { power: 0, timer: 0, last: 0, prev: null, coast: 0 };
   s.spinning = () => row.classList.contains("spin");
   function step() {
     const now = performance.now(), dt = s.last ? (now - s.last) / 1000 : 0;
     s.last = now;
     s.power = Math.max(0, s.power - dt * .9);
+    if (!s.power) {  // out of power: slower and slower, then it lands on what is showing
+      s.coast += dt;
+      if (s.coast >= COAST) { s.stop(); return; }
+      if (s.coast === dt) $("rollHint").textContent = "ช้าลงแล้ว… จะหยุดที่อะไรน้า";
+    }
     const p = Math.min(1, s.power / 3);
     for (const el of [row, $("roll")]) {
       el.style.setProperty("--power", p.toFixed(2));
@@ -724,10 +731,11 @@ function spinner(rowId, buttonId, pick, show, changed, kind, say) {
     let v, tries = 0; do { v = pick(); } while (v === s.prev && ++tries < 5);  // a pool of one may repeat
     s.prev = v; show(v);
     $("rollValue").textContent = say(v); $("d20n").textContent = 1 + Math.floor(Math.random() * 20);
-    s.timer = setTimeout(step, 1000 / (3 + 19 * p));
+    s.timer = setTimeout(step, s.power ? 1000 / (3 + 19 * p) : 333 + 700 * (s.coast / COAST) ** 2);
   }
   s.push = () => {
-    s.power = Math.min(s.power + 1.2, 8);
+    s.power = Math.min(s.spinning() ? s.power + 1.2 : Math.max(s.power, 2.4), 8);
+    if (s.coast) { s.coast = 0; $("rollHint").textContent = "แตะลูกเต๋า = หมุนแรงขึ้น"; }
     row.classList.remove("caught");
     if (!s.spinning()) { row.classList.add("spin"); s.last = 0; rollOpen(s, kind); step(); changed(true); }
   };
