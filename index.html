@@ -224,11 +224,10 @@
     background-size:100% 100%, 300% 100%; animation:rainbow var(--sweep, 2.4s) linear infinite;
     box-shadow:0 0 calc(10px + 30px * var(--power, 0)) rgba(197,155,255,calc(.25 + .45 * var(--power, 0))); }
   .diceRow.caught input { animation:caught .5s cubic-bezier(.3,1.6,.5,1); border-color:#ffd27a; box-shadow:0 0 22px rgba(255,210,122,.45); }
-  /* the roll (2026-10-18): a die pops into the middle of the screen, a d20 in obsidian and gold as Baldur's Gate 3 rolls
-     it; it tumbles faster the more it is tapped, the light behind it grows; จับ! lands it on a natural 20 */
+  /* the roll (2026-10-18): a die pops into the middle of the screen, a d20 as Baldur's Gate 3 rolls it, violet with the
+     page's running rainbow on its edges; it tumbles faster the more it is tapped, the light behind it grows; จับ! lands it on a natural 20 */
   .roll { position:fixed; inset:0; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
-    padding:24px 16px; background:radial-gradient(circle at 50% 42%, rgba(40,26,70,.93), rgba(6,5,10,.97) 70%);
-    -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); animation:fadeIn .2s ease-out; }
+    padding:24px 16px; animation:fadeIn .2s ease-out; }  /* no backdrop: the page stays in view under the die */
   .roll.out { animation:fadeOut .35s ease-in forwards; }
   @keyframes fadeIn { from { opacity:0; } }
   @keyframes fadeOut { to { opacity:0; } }
@@ -236,7 +235,8 @@
   @keyframes popIn { 0% { transform:scale(.15) rotate(-140deg); opacity:0; } 100% { transform:none; opacity:1; } }
   .rollRays { position:absolute; left:50%; top:50%; width:calc(300px + 160px * var(--power, 0)); height:calc(300px + 160px * var(--power, 0));
     transform:translate(-50%, -50%); border-radius:50%; pointer-events:none; opacity:calc(.35 + .55 * var(--power, 0));
-    background:repeating-conic-gradient(from var(--spin, 0deg), rgba(232,196,112,0) 0 10deg, rgba(232,196,112,.35) 10deg 15deg);
+    background:repeating-conic-gradient(from var(--spin, 0deg), rgba(255,122,182,0) 0 10deg, rgba(255,122,182,.32) 10deg 15deg, rgba(122,200,255,0) 15deg 25deg,
+      rgba(122,200,255,.32) 25deg 30deg, rgba(197,155,255,0) 30deg 40deg, rgba(197,155,255,.32) 40deg 45deg);
     -webkit-mask:radial-gradient(circle, #000 20%, transparent 68%); mask:radial-gradient(circle, #000 20%, transparent 68%); animation:holo 7s linear infinite; }
   .d20 { position:relative; border:0; padding:0; background:none; cursor:pointer; line-height:0; -webkit-tap-highlight-color:transparent;
     filter:drop-shadow(0 0 calc(14px + 26px * var(--power, 0)) rgba(197,155,255,.55)) drop-shadow(0 10px 18px rgba(0,0,0,.7)); }
@@ -245,15 +245,19 @@
     75% { transform:rotate(270deg) scale(.9) rotateX(-28deg); } 100% { transform:rotate(360deg) scale(1); } }
   .d20:active svg { scale:.94; }
   .roll.landed .d20 svg { animation:land .6s cubic-bezier(.2,1.7,.4,1); }
-  .roll.landed .d20 { filter:drop-shadow(0 0 34px rgba(255,214,120,.85)) drop-shadow(0 10px 18px rgba(0,0,0,.7)); }
+  .roll.landed .d20 { filter:drop-shadow(0 0 22px rgba(255,122,182,.7)) drop-shadow(0 0 40px rgba(122,200,255,.55)) drop-shadow(0 10px 18px rgba(0,0,0,.7)); }
   @keyframes land { 0% { transform:rotate(-40deg) scale(1.5); } 100% { transform:none; } }
   .rollValue { min-height:44px; max-width:100%; text-align:center; color:#fff; font:600 24px "Bai Jamjuree", sans-serif; text-shadow:0 0 18px rgba(197,155,255,.6); overflow-wrap:anywhere; }
-  .roll[data-kind="amount"] .rollValue { font:900 40px "Doto", monospace; color:#ffe08a; text-shadow:0 0 18px rgba(255,200,80,.6); }
-  .roll.landed .rollValue { animation:caught .5s cubic-bezier(.3,1.6,.5,1); color:#ffe08a; }
-  .rollHint { color:var(--muted); font-size:13px; text-align:center; }
-  .roll.landed .rollHint { color:#ffd27a; font:900 18px "Cinzel", serif; letter-spacing:2px; }
-  .rollCatch { min-width:180px; height:54px; border-radius:16px; border:2px solid #e8c470; background:#1a1408; color:#ffe08a; font:600 20px "Bai Jamjuree", sans-serif;
-    cursor:pointer; box-shadow:0 0 22px rgba(232,196,112,.35); }
+  .roll[data-kind="amount"] .rollValue { font:900 40px "Doto", monospace; }
+  .roll .rollValue, .roll.landed .rollHint { background:linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6); background-size:300% 100%;
+    -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:none;
+    filter:drop-shadow(0 2px 2px rgba(0,0,0,.9)) drop-shadow(0 0 10px rgba(0,0,0,.8)) drop-shadow(0 0 12px rgba(197,155,255,.4)); animation:rainbow 2.4s linear infinite; }
+  .roll.landed .rollValue { animation:caught .5s cubic-bezier(.3,1.6,.5,1), rainbow 2.4s linear infinite; }
+  .rollHint { color:#d8d4e4; font-size:13px; text-align:center; text-shadow:0 1px 3px #000, 0 0 10px #000; }
+  .roll.landed .rollHint { font:900 18px "Cinzel", serif; letter-spacing:2px; }
+  .rollCatch { min-width:180px; height:54px; border-radius:16px; border:2px solid transparent; color:#fff; font:600 20px "Bai Jamjuree", sans-serif; cursor:pointer;
+    background:linear-gradient(#15121f, #15121f) padding-box, linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6) border-box;
+    background-size:100% 100%, 300% 100%; animation:rainbow 2.4s linear infinite; box-shadow:0 0 18px rgba(255,122,182,.35), 0 0 36px rgba(122,200,255,.25); }
   .roll.landed .rollCatch { visibility:hidden; }
   @keyframes caught { 0% { transform:scale(.94); } 60% { transform:scale(1.04); } 100% { transform:none; } }
   .amountRow input[type=number]::-webkit-inner-spin-button { margin-right:4px; }
@@ -418,7 +422,11 @@
           <linearGradient id="d20a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5d4196"/><stop offset="1" stop-color="#1d1433"/></linearGradient>
           <linearGradient id="d20b" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b2864"/><stop offset="1" stop-color="#0f0a1c"/></linearGradient>
           <linearGradient id="d20c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a66c9"/><stop offset="1" stop-color="#3a2866"/></linearGradient>
-          <linearGradient id="d20g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c8"/><stop offset=".45" stop-color="#e8c470"/><stop offset="1" stop-color="#94651f"/></linearGradient>
+          <linearGradient id="d20g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="240" y2="120" spreadMethod="repeat">
+            <stop offset="0" stop-color="#ff7ab6"/><stop offset=".2" stop-color="#ffd27a"/><stop offset=".4" stop-color="#7dffb2"/>
+            <stop offset=".6" stop-color="#7ac8ff"/><stop offset=".8" stop-color="#c59bff"/><stop offset="1" stop-color="#ff7ab6"/>
+            <animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="240 120" dur="2.4s" repeatCount="indefinite"/>
+          </linearGradient>
         </defs>
         <g stroke="url(#d20g)" stroke-width="3" stroke-linejoin="round">
           <polygon points="100,5 190,57 100,45" fill="url(#d20a)"/><polygon points="100,5 10,57 100,45" fill="url(#d20b)"/>
@@ -429,7 +437,7 @@
           <polygon points="100,45 165,152 35,152" fill="url(#d20c)"/>
           <polygon points="100,5 190,57 190,163 100,215 10,163 10,57" fill="none" stroke-width="5"/>
         </g>
-        <text id="d20n" x="100" y="134" text-anchor="middle" font-family="Cinzel, serif" font-weight="900" font-size="44" fill="url(#d20g)" stroke="#2a1a05" stroke-width="1">20</text>
+        <text id="d20n" x="100" y="134" text-anchor="middle" font-family="Cinzel, serif" font-weight="900" font-size="44" fill="#fff" stroke="#2a1850" stroke-width="1.5">20</text>
       </svg>
     </button>
   </div>
