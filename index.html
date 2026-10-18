@@ -266,7 +266,7 @@
   .amountRow input[type=number] { -moz-appearance:textfield; appearance:textfield; }  /* no up/down arrows beside the die */
   .amountRow input[type=number]::-webkit-inner-spin-button, .amountRow input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
   /* the slip, held like a trading card: it sways, follows a finger, a mouse or the phone's tilt, and wears the amount's rank
-     (C · B · A · A+ · S at 5,000 · SS+ at 10,000 · SSS at 100,000) in its aura */
+     (Thx · Rare at 100 · Rare+ at 1,000 · S at 5,000 · SS+ at 10,000 · SSS at 100,000) in its aura */
   .slipCard { perspective:700px; display:flex; justify-content:center; padding:10px 0 4px; }
   .tilt { position:relative; display:inline-block; line-height:0; border-radius:12px; transform-style:preserve-3d;
     transform:rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition:transform .15s ease-out; animation:sway 4s ease-in-out infinite; }
@@ -1033,7 +1033,8 @@ $("file").onchange = async () => {
 };
 
 // the slip card's rank: the amount it is for
-const RANKS = [[100000, "SSS", "SSS"], [10000, "SS+", "SS"], [5000, "S", "S"], [1000, "A+", "Ap"], [300, "A", "A"], [100, "B", "B"], [0, "C", "C"]];
+// [from baht, the badge, its look]: Thx under 100, Rare from 100 (warmer from 300), Rare+ from 1,000, then S, SS+, SSS
+const RANKS = [[100000, "SSS", "SSS"], [10000, "SS+", "SS"], [5000, "S", "S"], [1000, "Rare+", "Ap"], [300, "Rare", "A"], [100, "Rare", "B"], [0, "Thx", "C"]];
 function slipRank() {
   const card = document.getElementById("slipCard");
   if (!card) return;
