@@ -284,6 +284,11 @@
   .playRow { display:flex; align-items:center; gap:10px; margin-top:6px; font-size:12px; color:var(--muted); }
   .playRow button { width:40px; height:40px; flex:none; border-radius:50%; border:1px solid #2f6b4f; background:#132a1f; color:#8ff0b8; cursor:pointer; font-size:15px; }
   .playRow #voiceWith { flex:1; text-align:center; }
+  /* each voice's level in the mix (a harmony only): green the voice, violet the harmony */
+  .levels { display:flex; flex-direction:column; gap:6px; width:100%; }
+  .levels .vol span { width:84px; }
+  .vol.l1 input { accent-color:#8ff0b8; } .vol.l1 b { color:#8ff0b8; }
+  .vol.l2 input { accent-color:#c9b8ff; } .vol.l2 b { color:#c9b8ff; }
   /* paused: the whole take on the meter, a line to drag back to where to record again (what is after it goes) */
   .cutBar { display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; font-size:13px; color:#8ff0b8; }
   .cutBar.l2 { color:#c9b8ff; }
@@ -549,6 +554,10 @@
       <div class="layersView" id="layersView">
         <canvas id="voiceShape" aria-label="กราฟเสียง ลากเส้นชมพูไปจุดที่อยากฟัง"></canvas>
         <div class="playRow"><button type="button" id="voicePlay" aria-label="ฟังจากเส้น">▶</button><span id="voiceNow">0:00</span><span id="voiceWith"></span><span id="voiceAll">0:00</span></div>
+      </div>
+      <div class="levels" id="levelsRow" hidden>
+        <div class="vol l1"><span>เสียง 1</span><input type="range" id="level1" min="0" max="100" step="5" value="100" aria-label="ความดังเสียง 1"><b id="level1Text">100%</b></div>
+        <div class="vol l2"><span>เสียงประสาน</span><input type="range" id="level2" min="0" max="100" step="5" value="100" aria-label="ความดังเสียงประสาน"><b id="level2Text">100%</b></div>
       </div>
       <div class="pair editRow"><button type="button" id="voiceAgain">Edit</button><button type="button" class="bin" id="voiceDrop" aria-label="ลบเสียง"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/><path d="M10 11v5.5M14 11v5.5"/></svg></button></div>
       <dialog class="ask" id="dropAsk"><b id="dropTitle">ลบเสียงนี้ไหม?</b><span id="dropWords">ลบแล้วต้องอัดใหม่ตั้งแต่ต้น</span><div class="pair"><button type="button" id="dropNo">ยกเลิก</button><button type="button" class="danger" id="dropYes">ลบเลย</button></div></dialog>
@@ -1031,6 +1040,7 @@ const page = { voice: true, voice_min: C.voiceMinAmount, voice_seconds: C.voiceS
                voice_volume: 80, bg_volume: 40, bg_lead: 1, bg_duck: 30 };
 let fxPick2 = "";  // the harmony's own effect (the chips work on the lane picked in the editor)
 let bgs = [], fxPick = "", bgPick = "", audioCtx = null, play = null, voiceDecoded = null, shape = null, bgTry = null;
+let levels = [100, 100];  // each voice's level in the mix, 0-100 (with a harmony; voice_level1 / voice_level2)
 let donePos = 0;  // where the done view's line is (seconds of the voices): Play starts there, a finger moves it
 const bgCache = {};
 async function loadPage() {
@@ -1076,6 +1086,8 @@ function voiceChoices() {
   $("bgVolRow").hidden = $("phones").hidden = !bgPick;
   $("bgVol").value = bgLoud(); $("bgVolText").textContent = bgLoud() + "%";
   $("voiceHint").textContent = voiceHintText();
+  $("levelsRow").hidden = !voice2;
+  levels.forEach((v, i) => { $("level" + (i + 1)).value = v; $("level" + (i + 1) + "Text").textContent = v + "%"; });
   $("voiceWith").textContent = voice && bgPick ? (voice.withBg === bgPick ? `อัดพร้อม ${bgName(bgPick)} · ตรงจังหวะ` : `+ ${bgName(bgPick)}`) : "";
 }
 let bgVolume = null;  // the donor's own loudness for the background, null = the streamer's (page.bg_volume)
@@ -1187,8 +1199,8 @@ async function voiceMix() {
   const settings = { ...page, bg_volume: bgLoud(), bg_lead: synced ? 0 : page.bg_lead };
   const one = heardVoice(synced ? voice.delay : 0), two = heardHarmony();
   if (!two) return VoiceFx.render(one, fxPick, await bgBuffer(bgPick), settings, a);
-  const sr = one.sampleRate, x = VoiceFx.even(VoiceFx.apply(fxPick, one.getChannelData(0), sr), sr);
-  const y = VoiceFx.even(VoiceFx.apply(fxPick2, two.getChannelData(0), sr), sr);
+  const sr = one.sampleRate, x = VoiceFx.even(VoiceFx.apply(fxPick, one.getChannelData(0), sr), sr).map(v => v * levels[0] / 100);
+  const y = VoiceFx.even(VoiceFx.apply(fxPick2, two.getChannelData(0), sr), sr).map(v => v * levels[1] / 100);
   const both = a.createBuffer(1, Math.max(x.length, y.length), sr), z = both.getChannelData(0);
   z.set(x); for (let i = 0; i < y.length; i++) z[i] += y[i];
   return VoiceFx.render(both, "real", await bgBuffer(bgPick), settings, a);
@@ -1229,9 +1241,10 @@ function drawLayers() {
     c.roundRect ? c.roundRect(x, up ? half - 2 * d - h : half + 2 * d, bw, h, bw / 2) : c.rect(x, up ? half - 2 * d - h : half + 2 * d, bw, h);
     c.fill();
   });
-  const one = lanePeaks(shape.one, shape.seconds, cols);
+  const level = i => shape.two ? levels[i] / 100 : 1;  // a harmony's levels show in how tall each voice is
+  const one = lanePeaks(shape.one, shape.seconds, cols).map(v => v * level(0));
   lane(one, "#8ff0b8", true, "#4f8f70");
-  if (shape.two) lane(lanePeaks(shape.two, shape.seconds, cols), "#c9b8ff", false, "#7d6fa8");
+  if (shape.two) lane(lanePeaks(shape.two, shape.seconds, cols).map(v => v * level(1)), "#c9b8ff", false, "#7d6fa8");
   else lane(one, "#8ff0b8", false, "#4f8f70");
   c.fillStyle = "rgba(255,255,255,.08)"; c.fillRect(0, half - .5 * d, W, d);
   const x = Math.min(W - 2 * d, donePos / shape.seconds * W);
@@ -1338,7 +1351,7 @@ async function laneSound(take) {
   if (!take.parts.length) return null;
   const placed = placeParts(decoded, take.parts, take.layer === 1 && !ed.bed ? 0 : take.delay), sr = placed.sampleRate;
   const loud = VoiceFx.even(VoiceFx.apply(take.layer === 2 ? fxPick2 : fxPick, placed.getChannelData(0), sr), sr);
-  const gain = Math.max(0, Math.min(1, (page.voice_volume != null ? page.voice_volume : 80) / 100));
+  const gain = Math.max(0, Math.min(1, (page.voice_volume != null ? page.voice_volume : 80) / 100)) * levels[take.layer - 1] / 100;
   const out = ctx().createBuffer(1, loud.length, sr);
   out.copyToChannel(loud.map(v => v * gain), 0);
   return out;
@@ -1595,18 +1608,24 @@ function finishVoices() {
 }
 $("voiceStop").onclick = stopVoice;
 function dropHarmony() {  // the harmony lane gone (in the editor, or what was made of it)
+  levels = [100, 100];
   if (ed && ed.lanes[1]) { endTake(ed.lanes[1]); ed.lanes.length = 1; ed.sel = 0; }
   if (voice2) URL.revokeObjectURL(voice2.url);
   voice2 = null; voice2Decoded = null;
 }
 function dropVoice() {
-  stopPreview(); stopPlay(); hush();
+  stopPreview(); stopPlay(); hush(); levels = [100, 100];
   if (ed) { ed.lanes.forEach(endTake); ed = null; }
   if (voice) URL.revokeObjectURL(voice.url);
   if (voice2) URL.revokeObjectURL(voice2.url);
   voice = null; voiceDecoded = null; voice2 = null; voice2Decoded = null; shape = null; voiceView("Idle"); voiceChoices();
 }
 $("voicePlay").onclick = () => play ? stopPreview() : playPreview();  // from the line
+let levelTimer = 0;
+for (const i of [1, 2]) $("level" + i).oninput = () => {
+  levels[i - 1] = +$("level" + i).value; $("level" + i + "Text").textContent = levels[i - 1] + "%"; drawLayers();
+  clearTimeout(levelTimer); levelTimer = setTimeout(() => playPreview(), 300);
+};
 let doneDrag = false;
 const doneLine = e => {
   const r = $("voiceShape").getBoundingClientRect();
@@ -1947,6 +1966,7 @@ async function sendNow() {
     if (parts2.length) {
       mixed.voice_path2 = harmonyPath; mixed.voice_parts2 = parts2;
       if (page.effects.includes(fxPick2)) mixed.voice_effect2 = fxPick2;
+      mixed.voice_level1 = levels[0]; mixed.voice_level2 = levels[1];
     }
   }
   let { error } = await sb.from("slips").insert(withWho(voicePath ? { ...row, voice_path: voicePath, ...picks, ...mixed } : row));

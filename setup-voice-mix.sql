@@ -5,6 +5,7 @@
 -- voice_parts: คนดูพักแล้วย้อนไปพากใหม่ · ช่วงของไฟล์เสียงที่เก็บไว้ [[เริ่ม, จบ], ...] เป็นวินาที แอปต่อเฉพาะช่วงเหล่านี้
 -- voice_path2 / voice_parts2 / voice_effect2: เสียงประสาน (เสียงที่ 2 อัดพร้อมฟังเสียงแรก) มีเอฟเฟกต์ของตัวเอง
 -- แอปซ้อนกับเสียงแรกเป็นไฟล์เดียว · voice_parts2 เป็น [เริ่ม, จบ, วางที่วินาที] เสียงประสานเข้ากลางคลิปได้
+-- voice_level1 / voice_level2: ความดังของเสียง 1 กับเสียงประสานในส่วนผสม 0-100 (คนดูปรับเอง)
 
 alter table public.slips  add column if not exists voice_bg_volume integer;
 alter table public.slips  add column if not exists voice_bg_delay  numeric(4,2);
@@ -18,8 +19,12 @@ alter table public.slips  add column if not exists voice_parts2    jsonb;
 alter table public.alerts add column if not exists voice_parts2    jsonb;
 alter table public.slips  add column if not exists voice_effect2   text;
 alter table public.alerts add column if not exists voice_effect2   text;
+alter table public.slips  add column if not exists voice_level1    integer;
+alter table public.alerts add column if not exists voice_level1    integer;
+alter table public.slips  add column if not exists voice_level2    integer;
+alter table public.alerts add column if not exists voice_level2    integer;
 
--- เหมือน setup-voice-fx.sql เพิ่มแค่หกบรรทัดท้าย
+-- เหมือน setup-voice-fx.sql เพิ่มแค่เจ็ดบรรทัดท้าย
 drop policy if exists "anyone can submit slip" on public.slips;
 create policy "anyone can submit slip" on public.slips for insert to anon
   with check (
@@ -53,14 +58,18 @@ create policy "anyone can submit slip" on public.slips for insert to anon
     and (voice_parts2 is null or (voice_path2 is not null and jsonb_typeof(voice_parts2) = 'array'
                                   and jsonb_array_length(voice_parts2) between 1 and 20 and char_length(voice_parts2::text) <= 600))
     and (voice_effect2 is null or (voice_path2 is not null and voice_effect2 ~ '^[a-z]{2,12}$'))
+    and ((voice_level1 is null and voice_level2 is null)
+         or (voice_path2 is not null and coalesce(voice_level1, 100) between 0 and 100 and coalesce(voice_level2, 100) between 0 and 100))
   );
 
 create or replace function public.slip_to_alert() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   insert into public.alerts (name, amount, message, video_url, video_start, twitch, tiktok, voice_path, voice_effect, voice_bg,
-                             voice_bg_volume, voice_bg_delay, voice_parts, voice_path2, voice_parts2, voice_effect2)
+                             voice_bg_volume, voice_bg_delay, voice_parts, voice_path2, voice_parts2, voice_effect2,
+                             voice_level1, voice_level2)
   values (new.name, new.amount, new.message, new.video_url, new.video_start, new.twitch, new.tiktok, new.voice_path,
-          new.voice_effect, new.voice_bg, new.voice_bg_volume, new.voice_bg_delay, new.voice_parts, new.voice_path2, new.voice_parts2, new.voice_effect2);
+          new.voice_effect, new.voice_bg, new.voice_bg_volume, new.voice_bg_delay, new.voice_parts, new.voice_path2, new.voice_parts2, new.voice_effect2,
+          new.voice_level1, new.voice_level2);
   return new;
 end $$;
