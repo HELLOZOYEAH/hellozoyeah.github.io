@@ -71,6 +71,22 @@
   .check { display:flex; align-items:center; gap:10px; font-size:14px; color:var(--ink); cursor:pointer; }
   .check input { width:20px; height:20px; accent-color:var(--accent); margin:0; }
   button:focus-visible, .drop:focus-within { outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* เสียงจากคนโดเนต (setup-voice.sql): อัดสั้น ๆ ฟังก่อนส่งได้ */
+  .rec { display:flex; flex-direction:column; align-items:center; gap:10px; padding:4px 0; }
+  .mic { width:84px; height:84px; border-radius:50%; border:1.5px solid var(--accent-line); background:var(--accent-deep); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
+  .mic svg { width:34px; height:34px; }
+  .mic.on { background:#3a1420; border-color:#ff5d7a; animation:ring 1.2s ease-out infinite; }
+  @keyframes ring { 0% { box-shadow:0 0 0 0 rgba(255,93,122,.5); } 100% { box-shadow:0 0 0 18px rgba(255,93,122,0); } }
+  #voiceCount { font-size:38px; line-height:1; color:#ff8fa3; }
+  #voiceWave { width:100%; height:46px; display:block; }
+  .player { display:flex; align-items:center; gap:10px; width:100%; background:var(--field); border:1px solid var(--field-line); border-radius:12px; padding:8px 10px; }
+  .player button { width:32px; height:32px; flex:none; border-radius:50%; border:1px solid var(--accent-line); background:var(--accent-deep); color:var(--accent); cursor:pointer; font-size:13px; }
+  .player canvas { flex:1; min-width:0; height:30px; }
+  .player span { color:var(--accent); font-size:15px; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; }
+  .pair button { height:44px; border-radius:12px; border:1px solid var(--field-line); background:var(--field); color:var(--ink); font:500 15px "Bai Jamjuree", sans-serif; cursor:pointer; }
+  .warn { font-size:12px; color:#c9b8ff; background:#1a1726; border:1px solid #2c2640; border-radius:10px; padding:8px 10px; }
 </style>
 </head>
 <body>
@@ -123,6 +139,25 @@
     <label for="vstart">เริ่มที่ (ไม่ใส่ = TikTok: ต้นคลิป · YouTube: ช่วงที่คนดูซ้ำมากที่สุด)</label>
     <input id="vstart" placeholder="เช่น 1:15" autocomplete="off">
     <div class="hint" id="clipHint"></div>
+  </section>
+
+  <section class="card" id="voiceCard" hidden>
+    <div class="step"><span class="dots">+</span>อัดเสียงให้ ACE เปิด <span class="opt">ไม่บังคับ</span></div>
+    <div class="rec" id="voiceIdle">
+      <button type="button" class="mic" id="voiceStart" aria-label="เริ่มอัดเสียง"><svg viewBox="0 0 24 24" fill="none" stroke="#b9a6ff" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <div class="hint" id="voiceHint"></div>
+    </div>
+    <div class="rec" id="voiceOn" hidden>
+      <button type="button" class="mic on" id="voiceStop" aria-label="หยุดอัด"><svg viewBox="0 0 24 24" fill="#ff8fa3" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>
+      <div class="dots" id="voiceCount"></div>
+      <canvas id="voiceWave" width="600" height="92"></canvas>
+      <div class="hint">แตะอีกครั้งเพื่อหยุด · ครบเวลาหยุดเอง</div>
+    </div>
+    <div class="rec" id="voiceDone" hidden>
+      <div class="player"><button type="button" id="voicePlay" aria-label="ฟังเสียงที่อัด">▶</button><canvas id="voiceShape" width="500" height="60"></canvas><span class="dots" id="voiceLength"></span></div>
+      <div class="pair"><button type="button" id="voiceAgain">อัดใหม่</button><button type="button" id="voiceDrop">ลบเสียง</button></div>
+    </div>
+    <div class="warn">เสียงนี้จะออกในสตรีม · ด่าได้แต่อย่าแรง</div>
   </section>
 
   <section class="card">
@@ -255,8 +290,104 @@ function clipShown() {
   return on;
 }
 
+// เสียงจากคนโดเนต (setup-voice.sql) · ACEACE (aceace/donations/voice.py) ปรับดังเท่ากันและมี Limiter ก่อนเล่น ตัดที่ความยาวที่ตั้งไว้
+// ไม่ลดเสียงไมค์เอง (autoGainControl ปิด): ไมค์บูทยังแตกตลกเหมือนเดิม แค่ไม่ดังเกินเพดานบนสตรีม
+const VOICE_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+let voice = null;      // { blob, type, ext, seconds, url }
+let recording = null;  // { recorder, stream, ac, analyser, chunks, levels, started, seconds }
+const voiceAudio = new Audio();
+const voiceOn = () => !!(C.voiceMinAmount && C.voiceSeconds && window.MediaRecorder && navigator.mediaDevices);
+function voiceShown() {
+  const on = voiceOn() && Number($("amount").value) >= C.voiceMinAmount;
+  $("voiceCard").hidden = !on;
+  $("voiceHint").textContent = `แตะเพื่ออัด · ยาวได้ ${C.voiceSeconds} วิ · ยอด ${C.voiceMinAmount} บาทขึ้นไป`;
+  if (!on && recording) stopVoice();
+  return on;
+}
+function voiceView(which) { for (const v of ["Idle", "On", "Done"]) $("voice" + v).hidden = v !== which; }
+function dotsWave(canvas, values, color) {
+  const c = canvas.getContext("2d"), W = canvas.width, H = canvas.height, gap = W / values.length;
+  const r = Math.min(gap * .3, H / 24), rows = Math.max(1, Math.floor(H / (r * 3)));
+  c.clearRect(0, 0, W, H);
+  values.forEach((v, i) => {
+    const n = Math.max(1, Math.round(Math.min(1, v) * rows));
+    for (let k = 0; k < rows; k++) {
+      c.fillStyle = Math.abs(k - (rows - 1) / 2) < n / 2 ? color : "rgba(255,255,255,.06)";
+      c.beginPath(); c.arc(gap * (i + .5), r * 1.5 + k * r * 3, r, 0, 7); c.fill();
+    }
+  });
+}
+$("voiceStart").onclick = async () => {
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); }
+  catch { return say("เปิดไมค์ไม่ได้ · กดอนุญาตให้ใช้ไมค์แล้วลองใหม่", "bad"); }
+  dropVoice();
+  const type = VOICE_TYPES.find(t => MediaRecorder.isTypeSupported(t)) || "";
+  const recorder = new MediaRecorder(stream, type ? { mimeType: type } : {});
+  const ac = new (window.AudioContext || window.webkitAudioContext)(), analyser = ac.createAnalyser();
+  analyser.fftSize = 1024; ac.createMediaStreamSource(stream).connect(analyser);
+  const rec = recording = { recorder, stream, ac, analyser, chunks: [], levels: [], started: performance.now() };
+  recorder.ondataavailable = e => { if (e.data.size) rec.chunks.push(e.data); };
+  recorder.onstop = () => finishVoice(rec);
+  recorder.start(250);
+  voiceView("On"); say("");
+  const data = new Float32Array(analyser.fftSize);
+  (function frame() {
+    if (recording !== rec) return;
+    const left = C.voiceSeconds - (performance.now() - rec.started) / 1000;
+    if (left <= 0) return stopVoice();
+    $("voiceCount").textContent = Math.ceil(left);
+    analyser.getFloatTimeDomainData(data);
+    let sum = 0; for (const x of data) sum += x * x;
+    rec.levels.push(Math.min(1, Math.sqrt(sum / data.length) * 4));
+    const last = rec.levels.slice(-40);
+    dotsWave($("voiceWave"), Array(40 - last.length).fill(0).concat(last), "#ff8fa3");
+    requestAnimationFrame(frame);
+  })();
+};
+function stopVoice() {
+  const rec = recording;
+  if (!rec) return;
+  recording = null;
+  rec.seconds = Math.min(C.voiceSeconds, (performance.now() - rec.started) / 1000);
+  if (rec.recorder.state !== "inactive") rec.recorder.stop();
+  rec.stream.getTracks().forEach(t => t.stop());
+  rec.ac.close().catch(() => {});
+}
+$("voiceStop").onclick = stopVoice;
+function finishVoice(rec) {
+  const seconds = rec.seconds ?? Math.min(C.voiceSeconds, (performance.now() - rec.started) / 1000);
+  const type = (rec.recorder.mimeType || (rec.chunks[0] && rec.chunks[0].type) || "audio/webm").split(";")[0];
+  const blob = new Blob(rec.chunks, { type });
+  if (!blob.size || seconds < .5) { voiceView("Idle"); return say("เสียงสั้นเกินไป ลองอัดใหม่", "bad"); }
+  if (blob.size > 2000000) { voiceView("Idle"); return say("ไฟล์เสียงใหญ่เกิน ลองอัดให้สั้นลง", "bad"); }
+  const ext = /mp4|aac|m4a/.test(type) ? "m4a" : /ogg/.test(type) ? "ogg" : "webm";
+  voice = { blob, type, ext, seconds, url: URL.createObjectURL(blob) };
+  voiceAudio.src = voice.url;
+  const cols = 48, L = rec.levels;
+  dotsWave($("voiceShape"), [...Array(cols)].map((_, i) => Math.max(0, ...L.slice(Math.floor(i * L.length / cols), Math.floor((i + 1) * L.length / cols)))), "#b9a6ff");
+  $("voiceLength").textContent = "0:" + String(Math.round(seconds)).padStart(2, "0");
+  voiceView("Done");
+}
+function dropVoice() {
+  voiceAudio.pause();
+  if (voice) URL.revokeObjectURL(voice.url);
+  voice = null; voiceView("Idle");
+}
+$("voicePlay").onclick = () => {
+  if (!voice) return;
+  if (!voiceAudio.paused) { voiceAudio.pause(); voiceAudio.currentTime = 0; return; }
+  voiceAudio.play().catch(() => {});
+};
+voiceAudio.onplay = () => { $("voicePlay").textContent = "■"; };
+voiceAudio.onpause = voiceAudio.onended = () => { $("voicePlay").textContent = "▶"; };
+$("voiceAgain").onclick = () => $("voiceStart").click();
+$("voiceDrop").onclick = dropVoice;
+const randomId = () => [...crypto.getRandomValues(new Uint8Array(12))].map(b => b.toString(16).padStart(2, "0")).join("");
+
 function drawQr() {
   clipShown();
+  voiceShown();
   const amt = Number($("amount").value);
   const ok = amt >= C.minAmount;
   $("big").textContent = ok ? amt.toLocaleString("th-TH", { maximumFractionDigits: 2 }) : "–";
@@ -321,6 +452,14 @@ $("send").onclick = async () => {
   }
   $("send").disabled = true;
   say("กำลังส่ง…");
+  // เสียงขึ้นก่อนแถวโดเนต เพราะ ACEACE อ่านแถวทันที · ชื่อไฟล์สุ่ม ไม่ใช้เลขรายการบนสลิป (ที่เก็บเสียงเปิดให้ฟังได้)
+  let voicePath = null;
+  const voiceWanted = !!(voice && voiceShown());
+  if (voiceWanted) {
+    const path = `${new Date().toISOString().slice(0, 10)}/${randomId()}.${voice.ext}`;
+    const { error } = await sb.storage.from("voices").upload(path, voice.blob, { contentType: voice.type, upsert: false }).catch(e => ({ error: e }));
+    if (!error) voicePath = path;
+  }
   try {
     localStorage.setItem("donate-name", $("name").value.trim());
     if (!$("anon").checked) localStorage.setItem("donate-twitch", twitchTyped().shown);
@@ -333,7 +472,10 @@ $("send").onclick = async () => {
     trans_ref: slip.transRef, bank: slip.bank, name, amount,
     message: $("text").value.trim(), slip_path: path, ...(clip || {}),
   };
-  let { error } = await sb.from("slips").insert(tw.login ? { ...row, [tw.platform]: tw.login } : row);
+  const withWho = r => tw.login ? { ...r, [tw.platform]: tw.login } : r;
+  let { error } = await sb.from("slips").insert(withWho(voicePath ? { ...row, voice_path: voicePath } : row));
+  // ยังไม่ได้รัน setup-voice.sql: ส่งโดเนตไปก่อนโดยไม่มีเสียง
+  if (error && voicePath && error.code === "PGRST204") { voicePath = null; ({ error } = await sb.from("slips").insert(withWho(row))); }
   // ยังไม่ได้รัน setup-twitch.sql: ส่งโดเนตไปก่อนโดยไม่มีชื่อ Twitch / TikTok
   if (error && tw.login && error.code === "PGRST204") ({ error } = await sb.from("slips").insert(row));
   if (error) {
@@ -341,7 +483,8 @@ $("send").onclick = async () => {
     return say(error.code === "23505" ? "สลิปนี้ถูกใช้ไปแล้ว" : "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง", "bad");
   }
   await sb.storage.from("slips").upload(path, slip.file, { upsert: false }).catch(() => {});
-  say("ส่งแล้ว! รอฟัง ACE อ่านบนสตรีมได้เลย 💜", "ok");
+  say(voiceWanted && !voicePath ? "ส่งโดเนตแล้ว แต่ส่งเสียงไม่สำเร็จ · รอฟัง ACE อ่านได้เลย" : "ส่งแล้ว! รอฟัง ACE อ่านบนสตรีมได้เลย 💜", "ok");
+  dropVoice();
   slip = null; $("file").value = "";
   resetDrop();
   $("text").value = ""; $("video").value = ""; $("vstart").value = "";

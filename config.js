@@ -5,6 +5,8 @@ window.DONATE_CONFIG = {
   minAmount: 20,
   videoMinAmount: 50,  // ส่งคลิป YouTube ได้ตั้งแต่ยอดนี้ (ต้องตรงกับ ACEACE และ setup-video.sql)
   videoSeconds: 30,
+  voiceMinAmount: 20,  // อัดเสียงให้ ACE เปิดได้ตั้งแต่ยอดนี้ (ต้องรัน setup-voice.sql ก่อน · ตรงกับ ACEACE: เสียงจากคนโดเนต)
+  voiceSeconds: 10,    // อัดได้นานสุด (วินาที) · ACEACE ตัดที่ความยาวที่ตั้งในแอปอีกชั้น
   quickAmounts: [20, 50, 100],
   // จาก Supabase > Project Settings > API
   supabaseUrl: "https://qftetivangjrmyyrsqsn.supabase.co",
