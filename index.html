@@ -335,8 +335,8 @@
   .nudge[hidden] { display:none !important; }
   .nudgeCard { width:100%; max-width:380px; background:#17161c; border:1px solid #2c2a36; border-radius:20px; overflow:hidden; animation:pop .28s cubic-bezier(.2,.9,.3,1.3); }
   @keyframes pop { from { transform:scale(.85); opacity:0; } to { transform:none; opacity:1; } }
-  .meme { position:relative; height:290px; background:#0e0d12; display:flex; align-items:center; justify-content:center; }
-  .meme img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .meme { position:relative; height:360px; background:#0e0d12; display:flex; align-items:center; justify-content:center; }
+  .meme img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 37%; }  /* the husky: both eyes, the nose and the pointing thumb */
   .meme .face { display:grid; grid-template-columns:repeat(15, 12px); gap:5px; margin-bottom:40px; }
   .meme .face b { width:12px; height:12px; border-radius:50%; background:#1f1d26; }
   .meme .face b.on { background:var(--accent); box-shadow:0 0 8px rgba(185,166,255,.8); }
