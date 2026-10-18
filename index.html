@@ -149,6 +149,22 @@
   .dragTag { position:absolute; left:50%; top:-6px; transform:translateX(-50%); padding:2px 10px; border-radius:99px; font:700 13px "Bai Jamjuree", sans-serif;
     background:#15121f; border:1.5px solid var(--tag, #5fd38f); color:var(--tag, #5fd38f); opacity:0; transition:opacity .25s; pointer-events:none; z-index:4; white-space:nowrap; }
   .dragTag.on { opacity:1; }
+  /* how a donor learns it drags: arrows beside the number that lean outward, a drag cursor on the number and its box,
+     and once per browser a hand swiping across the number with a word, until they drag it themselves */
+  #amount:not(:focus) { cursor:ew-resize; }
+  .dragArrow { position:absolute; top:50%; margin-top:-19px; font:600 34px/1 "Bai Jamjuree", sans-serif; color:#7c7690; pointer-events:none;
+    transition:color .2s; animation:lean 1.8s ease-in-out infinite; }
+  .dragArrow.l { left:2px; --lean:-4px; } .dragArrow.r { right:2px; --lean:4px; }
+  @keyframes lean { 0%, 100% { transform:none; } 50% { transform:translateX(var(--lean)); } }
+  .big:hover .dragArrow, .dragging .dragArrow { color:var(--accent); }
+  .swipeHint { position:absolute; left:50%; top:50%; pointer-events:none; z-index:5; opacity:0; }
+  .swipeHint.on { animation:hintShow 3.2s ease-in-out forwards; }
+  .swipeHint img { display:block; margin:-20px 0 0 -20px; filter:drop-shadow(0 3px 6px rgba(0,0,0,.6)); }
+  .swipeHint.on img { animation:swipe 1.4s ease-in-out 2; }
+  .swipeHint span { position:absolute; top:26px; left:50%; transform:translateX(-50%); white-space:nowrap; padding:3px 10px; border-radius:99px;
+    background:#15121f; border:1.5px solid var(--accent); color:#e4dbff; font:600 13px "Bai Jamjuree", sans-serif; }
+  @keyframes swipe { 0%, 100% { transform:translateX(-60px) rotate(-12deg); } 50% { transform:translateX(60px) rotate(12deg); } }
+  @keyframes hintShow { 0% { opacity:0; } 8%, 85% { opacity:1; } 100% { opacity:0; } }
   .dragTag[data-step="10"] { --tag:#5fd38f; }
   .dragTag[data-step="100"] { --tag:#ffc857; }
   .dragTag[data-step="1000"] { --tag:#ff7ab6; border-color:transparent; color:#fff;
@@ -441,7 +457,8 @@
 
   <section class="card">
     <div class="step"><span class="dots">02</span>เลือกยอดแล้วสแกนพร้อมเพย์</div>
-    <div class="big"><span class="dragTag" id="dragTag" aria-hidden="true"></span><div class="dots" id="big">0</div><span>บาท</span></div>
+    <div class="big"><span class="dragTag" id="dragTag" aria-hidden="true"></span><span class="dragArrow l" aria-hidden="true">‹</span><span class="dragArrow r" aria-hidden="true">›</span>
+      <span class="swipeHint" id="swipeHint" aria-hidden="true"><img src="hands/index.png" width="40" height="40" alt=""><span>ลากซ้ายขวาเพื่อปรับยอด</span></span><div class="dots" id="big">0</div><span>บาท</span></div>
     <div class="quick" id="quick"></div>
     <label for="amount" id="amountLabel">หรือใส่ยอดเอง</label>
     <div class="diceRow amountRow" id="amountRow">
@@ -1118,6 +1135,8 @@ function dragAmount(area) {
       if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { from = null; return; }  // scrolling the page
       if (Math.abs(dx) < 8) return;
       dragging = true; try { area.setPointerCapture(e.pointerId); } catch {} document.body.classList.add("dragging");
+      try { localStorage.setItem("donate-drag-known", "1"); } catch {}  // they know now: no more hand
+      $("swipeHint").classList.remove("on");
       $("amount").readOnly = true; $("amount").blur();  // no keyboard for a drag
     }
     e.preventDefault();
@@ -1143,6 +1162,18 @@ function dragAmount(area) {
   area.addEventListener("pointerup", end); area.addEventListener("pointercancel", end);
 }
 dragAmount($("big").parentElement); dragAmount($("amount"));
+// the swiping hand: once the amount is well in view, once per page, until this browser has dragged it
+(() => {
+  let known = false;
+  try { known = localStorage.getItem("donate-drag-known") === "1"; } catch {}
+  if (known || !window.IntersectionObserver) return;
+  const seen = new IntersectionObserver(entries => {
+    if (!entries.some(e => e.isIntersecting)) return;
+    seen.disconnect();
+    setTimeout(() => $("swipeHint").classList.add("on"), 500);
+  }, { threshold: .9 });
+  seen.observe($("big").parentElement);
+})();
 $("amount").addEventListener("pointerdown", e => { if (catchAmount()) e.preventDefault(); });
 $("big").addEventListener("pointerdown", () => catchAmount());
 drawQr();
