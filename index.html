@@ -280,7 +280,10 @@
   .withBg { font-size:12px; color:#cfc5ef; }
   /* two voices after Stop: the harmony above, the first voice below, mirrored on one time, to look at only */
   .layersView { width:100%; background:var(--field); border:1px solid var(--field-line); border-radius:12px; padding:8px 10px; }
-  .layersView canvas { width:100%; height:92px; display:block; }
+  .layersView canvas { width:100%; height:92px; display:block; cursor:ew-resize; touch-action:none; }
+  .playRow { display:flex; align-items:center; gap:10px; margin-top:6px; font-size:12px; color:var(--muted); }
+  .playRow button { width:40px; height:40px; flex:none; border-radius:50%; border:1px solid #2f6b4f; background:#132a1f; color:#8ff0b8; cursor:pointer; font-size:15px; }
+  .playRow #voiceWith { flex:1; text-align:center; }
   /* paused: the whole take on the meter, a line to drag back to where to record again (what is after it goes) */
   .cutBar { display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; font-size:13px; color:#8ff0b8; }
   .cutBar.l2 { color:#c9b8ff; }
@@ -543,11 +546,10 @@
       <div class="hint" id="recHint"></div>
     </div>
     <div class="rec" id="voiceDone" hidden>
-      <div class="player">
-        <div class="row"><button type="button" id="voicePlay" aria-label="ฟังเสียงที่อัด">▶</button><canvas id="voiceShape" aria-label="กราฟเสียง แตะเพื่อข้ามไปตรงนั้น"></canvas></div>
-        <div class="time"><span id="voiceNow">0:00</span><span id="voiceWith"></span><span id="voiceAll">0:00</span></div>
+      <div class="layersView" id="layersView">
+        <canvas id="voiceShape" aria-label="กราฟเสียง ลากเส้นชมพูไปจุดที่อยากฟัง"></canvas>
+        <div class="playRow"><button type="button" id="voicePlay" aria-label="ฟังจากเส้น">▶</button><span id="voiceNow">0:00</span><span id="voiceWith"></span><span id="voiceAll">0:00</span></div>
       </div>
-      <div class="layersView" id="layersView" hidden><canvas aria-label="เสียงประสานด้านบน เสียง 1 ด้านล่าง"></canvas></div>
       <div class="pair editRow"><button type="button" id="voiceAgain">Edit</button><button type="button" class="bin" id="voiceDrop" aria-label="ลบเสียง"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/><path d="M10 11v5.5M14 11v5.5"/></svg></button></div>
       <dialog class="ask" id="dropAsk"><b id="dropTitle">ลบเสียงนี้ไหม?</b><span id="dropWords">ลบแล้วต้องอัดใหม่ตั้งแต่ต้น</span><div class="pair"><button type="button" id="dropNo">ยกเลิก</button><button type="button" class="danger" id="dropYes">ลบเลย</button></div></dialog>
     </div>
@@ -1029,6 +1031,7 @@ const page = { voice: true, voice_min: C.voiceMinAmount, voice_seconds: C.voiceS
                voice_volume: 80, bg_volume: 40, bg_lead: 1, bg_duck: 30 };
 let fxPick2 = "";  // the harmony's own effect (the chips work on the lane picked in the editor)
 let bgs = [], fxPick = "", bgPick = "", audioCtx = null, play = null, voiceDecoded = null, shape = null, bgTry = null;
+let donePos = 0;  // where the done view's line is (seconds of the voices): Play starts there, a finger moves it
 const bgCache = {};
 async function loadPage() {
   try {
@@ -1192,22 +1195,19 @@ async function voiceMix() {
 }
 const COLS = 64;
 const LIVE = 72, LIVE_STEP = 1 / 12;  // while recording: 72 bars of 1/12 s, the last 6 seconds
-function envelope(buffer) {
-  const x = buffer.getChannelData(0), per = Math.ceil(x.length / COLS), out = [];
-  for (let i = 0; i < COLS; i++) { let m = 0; for (let k = i * per; k < Math.min(x.length, (i + 1) * per); k += 16) m = Math.max(m, Math.abs(x[k])); out.push(m); }
-  const top = Math.max(...out, 1e-3);
-  return out.map(v => Math.pow(v / top, .8));
-}
-const drawShape = (upTo = 0) => shape && bars($("voiceShape"), shape.values, upTo, "#8ff0b8", "#2f4a3c");  // green as recorded, brighter where played
+// the voices as they will be heard: the mix (and how long the voices themselves are, the lead before them)
 async function voiceShape() {
   if (!voice) return null;
   const buffer = await voiceMix();
-  shape = { values: envelope(buffer), seconds: buffer.duration };
-  $("voiceAll").textContent = clock(buffer.duration);
-  if (!play) { drawShape(); drawLayers(); }
+  const one = heardVoice(voice.withBg && voice.withBg === bgPick ? voice.delay : 0), two = heardHarmony();
+  shape = { one, two, seconds: Math.max(0.5, one.duration, two ? two.duration : 0),
+            lead: bgPick && !(voice.withBg && voice.withBg === bgPick) ? +page.bg_lead || 0 : 0 };
+  donePos = Math.min(donePos, shape.seconds);
+  $("voiceAll").textContent = clock(shape.seconds);
+  if (!play) drawLayers();
   return buffer;
 }
-// the two voices of a harmony mirrored: each lane's peaks (the quiet part kept low, so the shape shows), the line walking
+// each voice's peaks across the time (the quiet part kept low, so the shape shows)
 function lanePeaks(buffer, seconds, cols) {
   const x = buffer.getChannelData(0), sr = buffer.sampleRate, out = [];
   for (let i = 0; i < cols; i++) {
@@ -1218,50 +1218,49 @@ function lanePeaks(buffer, seconds, cols) {
   const sorted = [...out].sort((p, q) => p - q), low = sorted[Math.floor(cols * .15)], top = Math.max(sorted[cols - 1], low + 1e-4);
   return out.map(v => Math.max(0, (v - low) / (top - low)));
 }
-function drawLayers(at = -1) {
-  const box = $("layersView"), two = voice && voice2 && voiceDecoded && voice2Decoded ? heardHarmony() : null;
-  box.hidden = !two;
-  if (!two) return;
-  const one = heardVoice(voice.withBg && voice.withBg === bgPick ? voice.delay : 0), cols = 120;
-  const seconds = Math.max(1, one.duration, two.duration), canvas = box.querySelector("canvas");
-  const { c, W, H, d } = fit(canvas), half = H / 2, step = W / cols, bw = Math.max(1.5 * d, step * .5);
+// the first voice green above the middle, a harmony violet below (alone, the voice is mirrored), the pink line on it
+function drawLayers() {
+  if (!shape) return;
+  const canvas = $("voiceShape"), cols = 120, { c, W, H, d } = fit(canvas), half = H / 2, step = W / cols, bw = Math.max(1.5 * d, step * .5);
   c.clearRect(0, 0, W, H);
-  const lane = (values, color, up) => values.forEach((v, i) => {
-    const h = Math.max(2 * d, v * (half - 6 * d)), x = i * step + (step - bw) / 2;
-    c.fillStyle = color; c.beginPath();
+  const lane = (values, color, up, dim) => values.forEach((v, i) => {
+    const h = Math.max(2 * d, v * (half - 8 * d)), x = i * step + (step - bw) / 2;
+    c.fillStyle = i * step + step / 2 < donePos / shape.seconds * W ? color : dim; c.beginPath();
     c.roundRect ? c.roundRect(x, up ? half - 2 * d - h : half + 2 * d, bw, h, bw / 2) : c.rect(x, up ? half - 2 * d - h : half + 2 * d, bw, h);
     c.fill();
   });
-  lane(lanePeaks(two, seconds, cols), "#c9b8ff", true);
-  lane(lanePeaks(one, seconds, cols), "#8ff0b8", false);
+  const one = lanePeaks(shape.one, shape.seconds, cols);
+  lane(one, "#8ff0b8", true, "#4f8f70");
+  if (shape.two) lane(lanePeaks(shape.two, shape.seconds, cols), "#c9b8ff", false, "#7d6fa8");
+  else lane(one, "#8ff0b8", false, "#4f8f70");
   c.fillStyle = "rgba(255,255,255,.08)"; c.fillRect(0, half - .5 * d, W, d);
-  if (at >= 0) { c.fillStyle = "#ff8fa3"; c.fillRect(Math.min(W - 2 * d, at / seconds * W), 0, 2 * d, H); }
+  const x = Math.min(W - 2 * d, donePos / shape.seconds * W);
+  c.fillStyle = "#ff8fa3"; c.fillRect(x, 0, 2 * d, H);
+  c.beginPath(); c.moveTo(x - 5 * d, 0); c.lineTo(x + 7 * d, 0); c.lineTo(x + d, 8 * d); c.fill();
+  $("voiceNow").textContent = clock(donePos);
 }
-function stopPreview() {
+function stopPreview() {  // the line stays where it was
   if (play) { const p = play; play = null; if (p.source) try { p.source.stop(); } catch {} }
-  $("voicePlay").textContent = "▶"; $("voiceNow").textContent = "0:00";
-  drawShape(); drawLayers();
+  $("voicePlay").textContent = "▶";
+  drawLayers();
 }
-async function playPreview(from = 0) {
+// Play: from the line (from the start when it is at the end), the line walking with the sound
+async function playPreview(from = null) {
   stopPreview(); stopBgTry();
   if (!voice) return;
   const mine = {}; play = mine; $("voicePlay").textContent = "…";
   try {
     const buffer = await voiceShape();
     if (play !== mine || !buffer) return;  // another chip was pressed meanwhile
+    const start = from ?? (donePos >= shape.seconds - 0.05 ? 0 : donePos), at = start > 0 ? start + shape.lead : 0;
     const a = ctx(), source = a.createBufferSource(); source.buffer = buffer; source.connect(a.destination);
-    const started = a.currentTime - from;
-    source.onended = () => { if (play && play.source === source) stopPreview(); };
-    play = { source }; source.start(0, from); $("voicePlay").textContent = "■";
+    const started = a.currentTime - at;
+    source.onended = () => { if (play && play.source === source) { donePos = 0; stopPreview(); } };
+    play = { source }; source.start(0, at); $("voicePlay").textContent = "■";
     (function walk() {
       if (!play || play.source !== source) return;
-      const t = a.currentTime - started;
-      drawShape(Math.round(t / shape.seconds * COLS));
-      if (voice2) {  // the voices start after the background's lead, if any
-        const lead = bgPick && !(voice.withBg && voice.withBg === bgPick) ? +page.bg_lead || 0 : 0;
-        drawLayers(Math.max(0, t - lead));
-      }
-      $("voiceNow").textContent = clock(Math.min(t, shape.seconds));
+      donePos = Math.max(0, Math.min(shape.seconds, a.currentTime - started - shape.lead));
+      drawLayers();
       requestAnimationFrame(walk);
     })();
   } catch {
@@ -1607,13 +1606,16 @@ function dropVoice() {
   if (voice2) URL.revokeObjectURL(voice2.url);
   voice = null; voiceDecoded = null; voice2 = null; voice2Decoded = null; shape = null; voiceView("Idle"); voiceChoices();
 }
-$("voicePlay").onclick = () => play ? stopPreview() : playPreview();
-$("voiceShape").onclick = e => {  // a tap on the graph jumps there
-  if (!shape) return;
-  const r = e.currentTarget.getBoundingClientRect();
-  playPreview(Math.max(0, Math.min(.98, (e.clientX - r.left) / r.width)) * shape.seconds);
+$("voicePlay").onclick = () => play ? stopPreview() : playPreview();  // from the line
+let doneDrag = false;
+const doneLine = e => {
+  const r = $("voiceShape").getBoundingClientRect();
+  donePos = Math.max(0, Math.min(shape.seconds, (e.clientX - r.left) / r.width * shape.seconds)); drawLayers();
 };
-addEventListener("resize", () => { if (!play) drawShape(); });
+$("voiceShape").onpointerdown = e => { if (!shape) return; stopPreview(); doneDrag = true; e.currentTarget.setPointerCapture(e.pointerId); doneLine(e); };
+$("voiceShape").onpointermove = e => { if (doneDrag) doneLine(e); };
+$("voiceShape").onpointerup = $("voiceShape").onpointercancel = () => { doneDrag = false; };
+addEventListener("resize", () => { if (!play) drawLayers(); });
 loadPage();
 // Edit: back to the editor, every lane as it was, to play, cut, add a harmony and record on in the same files
 $("voiceAgain").onclick = () => {
