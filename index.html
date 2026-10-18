@@ -268,6 +268,11 @@
   .syncFoot { display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--dim); text-align:center; }
   .syncFoot span { flex:1; }
   .syncFoot button { width:34px; height:30px; flex:none; border-radius:9px; border:1px solid var(--field-line); background:#16161a; color:var(--ink); cursor:pointer; font-size:12px; }
+  /* paused: the whole take on the meter, a line to drag back to where to record again (what is after it goes) */
+  #voiceWave.cutting { cursor:ew-resize; touch-action:none; }
+  .cutBar { display:flex; align-items:center; gap:8px; width:100%; font-size:13px; color:#ffd3dc; }
+  .cutBar span { flex:1; text-align:center; }
+  .cutBar button { height:32px; min-width:34px; border-radius:9px; border:1px solid var(--field-line); background:#16161a; color:var(--ink); cursor:pointer; font:500 12px "Bai Jamjuree", sans-serif; padding:0 10px; }
   /* start over while recording: the take thrown away, a new one (and its background) from the top at once */
   .recBtns { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:14px; width:100%; }
   .redo { justify-self:end; display:flex; align-items:center; gap:6px; height:40px; padding:0 14px; border-radius:999px;
@@ -489,6 +494,12 @@
     <div class="rec" id="voiceOn" hidden>
       <div class="live"><span class="tag" id="recTag"><i></i><span>กำลังอัด</span></span><span class="dots clock" id="voiceClock">0:00</span><span class="left" id="voiceLeft"></span></div>
       <canvas id="voiceWave"></canvas>
+      <div class="cutBar" id="cutBar" hidden>
+        <button type="button" id="cutBack" aria-label="ถอยจุดพากใหม่ 0.5 วิ">◀</button>
+        <span id="cutText"></span>
+        <button type="button" id="cutFwd" aria-label="เลื่อนจุดพากใหม่ไปหน้า 0.5 วิ">▶</button>
+        <button type="button" class="hear" id="cutHear">ฟังก่อนจุดนี้</button>
+      </div>
       <div class="withBg" id="recBg" hidden></div>
       <div class="recBtns">
         <button type="button" class="redo" id="voiceRedo" aria-label="ทิ้งแล้วอัดใหม่ตั้งแต่ต้น"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>เริ่มใหม่</button>
@@ -1086,12 +1097,28 @@ function cutStart(buffer, seconds) {
   for (let c = 0; c < buffer.numberOfChannels; c++) out.copyToChannel(buffer.getChannelData(c).subarray(skip), c);
   return out;
 }
+// the kept parts of a recording joined, each as far later in the file as the PC was behind (`delay`)
+function joinParts(buffer, parts, delay) {
+  const sr = buffer.sampleRate, x = buffer.getChannelData(0), pieces = [];
+  for (const p of parts) {
+    const a = Math.round((p.r + delay) * sr), b = Math.min(x.length, Math.round((p.r + p.len + delay) * sr));
+    if (b > a) pieces.push(x.subarray(a, b));
+  }
+  const out = ctx().createBuffer(1, Math.max(1, pieces.reduce((n, s) => n + s.length, 0)), sr), y = out.getChannelData(0);
+  let at = 0; for (const s of pieces) { y.set(s, at); at += s.length; }
+  return out;
+}
+// the voice as heard: its kept parts, the delay behind a background it was recorded along taken out
+function heardVoice(delay) {
+  if (!voice.parts) return delay ? cutStart(voiceDecoded, delay) : voiceDecoded;
+  return joinParts(voiceDecoded, voice.parts.map(([a, b]) => ({ r: a, len: b - a })), delay);
+}
 async function voiceMix() {
   const a = ctx();
   if (!voiceDecoded) voiceDecoded = await a.decodeAudioData(await voice.blob.arrayBuffer());
   const synced = voice.withBg && voice.withBg === bgPick;
   const settings = { ...page, bg_volume: bgLoud(), bg_lead: synced ? 0 : page.bg_lead };
-  return VoiceFx.render(synced ? cutStart(voiceDecoded, voice.delay) : voiceDecoded, fxPick, await bgBuffer(bgPick), settings, a);
+  return VoiceFx.render(heardVoice(synced ? voice.delay : 0), fxPick, await bgBuffer(bgPick), settings, a);
 }
 // the timing view: peaks of the music (top) and of the voice (below, moved left by its delay), the same seconds across
 const SYNC_MAX = 1.5, SYNC_COLS = 120;
@@ -1109,7 +1136,8 @@ function peaks(buffer, from, seconds, cols) {
 async function drawSync(at = -1) {
   if (!voice || !voiceDecoded || $("syncRow").hidden) return;
   if (!syncBg || syncBg.id !== bgPick) { const buffer = await bgBuffer(bgPick); syncBg = buffer && { id: bgPick, buffer }; }
-  const { c, W, H, d } = fit($("syncView")), seconds = Math.max(1, voiceDecoded.duration - voice.delay), half = H / 2;
+  const heard = heardVoice(voice.delay);
+  const { c, W, H, d } = fit($("syncView")), seconds = Math.max(1, heard.duration), half = H / 2;
   c.clearRect(0, 0, W, H);
   const lane = (values, color, mid, up) => {
     const step = W / values.length, bw = Math.max(1.5 * d, step * .5);
@@ -1121,7 +1149,7 @@ async function drawSync(at = -1) {
     });
   };
   if (syncBg) lane(peaks(syncBg.buffer, 0, seconds, SYNC_COLS), "#b9a6ff", half - 2 * d, true);
-  lane(peaks(voiceDecoded, voice.delay, seconds, SYNC_COLS), "#8ff0b8", half + 2 * d, false);
+  lane(peaks(heard, 0, seconds, SYNC_COLS), "#8ff0b8", half + 2 * d, false);
   c.fillStyle = "rgba(255,255,255,.08)"; c.fillRect(0, half - .5 * d, W, d);
   if (at >= 0) { c.fillStyle = "#fff"; c.fillRect(Math.min(W - d, at / seconds * W), 0, 1.5 * d, H); }
   $("syncText").textContent = voice.delay.toFixed(2) + " วิ";
@@ -1138,7 +1166,7 @@ let syncDrag = null;
 $("syncView").onpointerdown = e => {
   if (!voice || !voiceDecoded) return;
   e.currentTarget.setPointerCapture(e.pointerId);
-  syncDrag = { x: e.clientX, delay: voice.delay, perPx: Math.max(1, voiceDecoded.duration - voice.delay) / e.currentTarget.getBoundingClientRect().width };
+  syncDrag = { x: e.clientX, delay: voice.delay, perPx: Math.max(1, heardVoice(voice.delay).duration) / e.currentTarget.getBoundingClientRect().width };
 };
 $("syncView").onpointermove = e => { if (syncDrag) nudge(syncDrag.delay + (syncDrag.x - e.clientX) * syncDrag.perPx, false); };
 $("syncView").onpointerup = $("syncView").onpointercancel = () => { if (syncDrag) { syncDrag = null; nudge(voice.delay); } };
@@ -1212,8 +1240,10 @@ $("voiceStart").onclick = async () => {
   const recorder = new MediaRecorder(stream, type ? { mimeType: type } : {});
   const analyser = a.createAnalyser(); analyser.fftSize = 1024;
   a.createMediaStreamSource(stream).connect(analyser);
-  const rec = recording = { recorder, stream, analyser, chunks: [], cols: new Array(LIVE).fill(0), at: 0, withBg: "",
-                            elapsed: 0, segment: 0, paused: false };
+  // file: seconds in the recording (pauses not recorded); kept: the voice as it will be, after any cut. parts: what of
+  // the file is kept, in order ({ r: where in the file, v: where in the voice, len }); the background follows `kept`
+  const rec = recording = { recorder, stream, analyser, chunks: [], levels: [], withBg: "", file: 0, segment: 0, paused: false,
+                            parts: [], cur: null, cut: 0 };
   recorder.ondataavailable = e => { if (e.data.size) rec.chunks.push(e.data); };
   recorder.onstop = () => rec.again ? $("voiceStart").click() : finishVoice(rec);
   // the background starts with the recording, so the voice lands on its beat
@@ -1221,84 +1251,158 @@ $("voiceStart").onclick = async () => {
   if (recording !== rec) return;
   if (bed) {
     rec.bed = bed; rec.bgGain = a.createGain(); rec.bgGain.gain.value = bgLoud() / 100; rec.bgGain.connect(a.destination);
-    rec.withBg = bgPick; rec.bgOffset = 0;
-    $("recBg").textContent = `♪ ${bgName(bgPick)} กำลังเล่น · พากไปพร้อมเพลงได้เลย`;
+    rec.withBg = bgPick;
   }
   $("recBg").hidden = !bed;
   // the background starts when the recording really does; what is still behind: the time the background takes to
   // reach the ears and the voice to reach the recording (the timing view after recording fixes the rest by eye)
   const track = stream.getAudioTracks()[0], heard = (a.baseLatency || 0) + (a.outputLatency || 0);
   rec.delay = bed ? Math.max(0, Math.min(1.5, heard + ((track && track.getSettings().latency) || 0))) : 0;
-  recorder.onstart = recorder.onresume = () => { rec.segment = performance.now(); bedFrom(rec, rec.bgOffset || 0); };
-  rec.segment = performance.now();
+  recorder.onstart = recorder.onresume = () => {
+    rec.segment = performance.now(); rec.cur = { r: rec.file, v: rec.cut };
+    rec.levels.length = Math.floor(rec.cut / LIVE_STEP);  // what was after a cut is gone from the meter too
+    bedFrom(rec, rec.cut);
+  };
+  rec.segment = performance.now(); rec.cur = { r: 0, v: 0 };
   recorder.start(250);
   voiceView("On"); say(""); recShown(rec);
   const data = new Float32Array(analyser.fftSize);
   (function frame() {
     if (recording !== rec) return;
-    const t = recTime(rec), left = page.voice_seconds - t;
+    const t = keptTime(rec), left = page.voice_seconds - t;
     if (left <= 0) return stopVoice();
-    $("voiceClock").textContent = clock(t);
-    $("voiceLeft").textContent = `เหลือ ${Math.ceil(left)} วิ`;
+    $("voiceClock").textContent = clock(rec.paused ? rec.cut : t);
+    $("voiceLeft").textContent = `เหลือ ${Math.ceil(page.voice_seconds - (rec.paused ? rec.cut : t))} วิ`;
     if (!rec.paused) {
       analyser.getFloatTimeDomainData(data);
       let sum = 0; for (const x of data) sum += x * x;
       const level = Math.min(1, Math.pow(Math.sqrt(sum / data.length) * 5, .7));
       // the last few seconds slide to the left, the newest bar on the right follows the mouth every frame
       const step = Math.floor(t / LIVE_STEP);
-      while (rec.at < step) { rec.cols.shift(); rec.cols.push(0); rec.at++; }
-      rec.cols[LIVE - 1] = Math.max(rec.cols[LIVE - 1] * .6, level);
-      bars($("voiceWave"), rec.cols, LIVE, "#8ff0b8", "#24342c");
+      for (let i = rec.levels.length; i <= step; i++) rec.levels[i] = 0;
+      rec.levels[step] = Math.max(rec.levels[step] * .6, level);
+      const shown = rec.levels.slice(Math.max(0, step + 1 - LIVE), step + 1);
+      bars($("voiceWave"), [...new Array(LIVE - shown.length).fill(0), ...shown], LIVE, "#8ff0b8", "#24342c");
     }
     requestAnimationFrame(frame);
   })();
 };
-// seconds recorded: paused time left out
-const recTime = rec => rec.elapsed + (rec.paused ? 0 : (performance.now() - rec.segment) / 1000);
-// the background from `offset` seconds in (a paused one goes on where it stopped)
+// seconds in the file (paused time left out), and of the voice as kept
+const fileTime = rec => rec.file + (rec.paused ? 0 : (performance.now() - rec.segment) / 1000);
+const keptTime = rec => rec.paused || !rec.cur ? rec.end || 0 : rec.cur.v + (fileTime(rec) - rec.cur.r);
+// the background from `offset` seconds in: where the kept voice is (after a cut, back there with it)
 function bedFrom(rec, offset) {
   if (!rec.bed || recording !== rec) return;
   const a = ctx(), source = a.createBufferSource();
   source.buffer = rec.bed; source.loop = true; source.connect(rec.bgGain);
   source.start(0, offset % rec.bed.duration);
-  rec.bg = source; rec.bgFrom = a.currentTime - offset;
+  rec.bg = source;
 }
-function bedStop(rec) {
-  if (!rec.bg) return;
-  rec.bgOffset = ctx().currentTime - rec.bgFrom;
-  try { rec.bg.stop(); } catch {}
-  rec.bg = null;
+function bedStop(rec) { if (rec.bg) { try { rec.bg.stop(); } catch {} rec.bg = null; } }
+// the part being recorded joins the kept ones
+function closePart(rec) {
+  if (!rec.cur) return;
+  const now = fileTime(rec), len = now - rec.cur.r;
+  if (len > 0.02) rec.parts.push({ r: rec.cur.r, v: rec.cur.v, len });
+  rec.file = now; rec.end = rec.cur.v + Math.max(0, len); rec.cur = null;
+}
+// a cut at `at` seconds of the voice: what is after it is dropped when recording goes on
+function cutAt(rec, at) {
+  rec.cut = Math.round(Math.max(0, Math.min(rec.end, at)) * 20) / 20;
+  drawTake(rec);
+}
+function keptParts(rec) {  // the parts as they stand with the cut applied
+  const out = [];
+  for (const part of rec.parts) {
+    if (part.v >= rec.cut) break;
+    out.push({ ...part, len: Math.min(part.len, rec.cut - part.v) });
+  }
+  return out;
+}
+// paused: the whole take on the meter, the cut line, what would go dimmed
+function drawTake(rec) {
+  const end = Math.max(rec.end, 0.1), cols = Math.min(120, Math.max(24, rec.levels.length));
+  const values = [...new Array(cols)].map((_, i) => {
+    const a = Math.floor(i * rec.levels.length / cols), b = Math.max(a + 1, Math.floor((i + 1) * rec.levels.length / cols));
+    return Math.max(0, ...rec.levels.slice(a, b));
+  });
+  const lit = Math.round(rec.cut / end * cols);
+  bars($("voiceWave"), values, lit, "#8ff0b8", "#2f4a3c");
+  const { c, W, H, d } = fit($("voiceWave")), x = Math.min(W - 2 * d, rec.cut / end * W);
+  c.fillStyle = "#ff8fa3"; c.fillRect(x, 0, 2 * d, H);
+  c.beginPath(); c.moveTo(x - 5 * d, 0); c.lineTo(x + 7 * d, 0); c.lineTo(x + d, 8 * d); c.fill();
+  $("cutText").textContent = rec.cut < rec.end - 0.04 ? `ตัดหลัง ${clock(rec.cut)} · อัดต่อจากเส้น` : `อัดต่อจาก ${clock(rec.cut)}`;
 }
 function recShown(rec) {
   $("recTag").classList.toggle("paused", rec.paused); $("recTag").lastChild.textContent = rec.paused ? "พักอยู่" : "กำลังอัด";
   $("voicePause").classList.toggle("paused", rec.paused);
-  if (rec.bed) $("recBg").textContent = rec.paused ? `♪ ${bgName(rec.withBg)} พักอยู่ · อัดต่อแล้วเล่นต่อจากตรงนี้` : `♪ ${bgName(rec.withBg)} กำลังเล่น · พากไปพร้อมเพลงได้เลย`;
-  $("voicePause").setAttribute("aria-label", rec.paused ? "อัดต่อ" : "พักการอัด");
+  if (rec.bed) $("recBg").textContent = rec.paused ? `♪ ${bgName(rec.withBg)} พักอยู่ · อัดต่อแล้วเล่นต่อจากเส้น` : `♪ ${bgName(rec.withBg)} กำลังเล่น · พากไปพร้อมเพลงได้เลย`;
+  $("voicePause").setAttribute("aria-label", rec.paused ? "อัดต่อจากเส้น" : "พักการอัด");
   $("voicePause").innerHTML = rec.paused ? '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="#ff6b86"/></svg>' : PAUSE_ICON;
-  $("recHint").textContent = rec.paused ? "พักอยู่ · แตะ ● อัดต่อจากตรงนี้ (เพลงเล่นต่อจากเดิม) · เสร็จแล้วกด หยุด"
-    : "พูดพลาด กด เริ่มใหม่ · แตะตรงกลางเพื่อพัก · เสร็จแล้วกด หยุด";
+  $("cutBar").hidden = !rec.paused;
+  $("voiceWave").classList.toggle("cutting", rec.paused);
+  $("recHint").textContent = rec.paused ? "ลากเส้นชมพูไปจุดที่จะพากใหม่ · ● อัดต่อ · หยุด = จบตรงเส้น"
+    : "พูดพลาด กดพักแล้วลากกลับไปพากใหม่ได้ · เสร็จแล้วกด หยุด";
+  if (rec.paused) drawTake(rec);
 }
-const PAUSE_ICON = `<svg viewBox="0 0 24 24" fill="#ff8fa3" aria-hidden="true"><rect x="7" y="6" width="3.6" height="12" rx="1.2"/><rect x="13.4" y="6" width="3.6" height="12" rx="1.2"/></svg>`;
-// the middle button: pause, and again to go on from where it stopped (the background too)
+const PAUSE_ICON = $("voicePause").innerHTML;
+// the middle button: pause, and again to go on from the cut line (the background too)
 $("voicePause").onclick = () => {
   const rec = recording;
   if (!rec || rec.recorder.state === "inactive") return;
   if (!rec.paused) {
-    rec.elapsed = recTime(rec); rec.paused = true;
+    closePart(rec); rec.paused = true; rec.cut = rec.end;
     if (rec.recorder.state === "recording") rec.recorder.pause();
-    bedStop(rec);
+    bedStop(rec); stopHear();
   } else {
-    rec.paused = false; rec.segment = performance.now();
-    if (rec.recorder.state === "paused") rec.recorder.resume();  // onresume starts the background where it stopped
+    stopHear();
+    rec.parts = keptParts(rec); rec.paused = false;
+    rec.segment = performance.now(); rec.cur = { r: rec.file, v: rec.cut };
+    if (rec.recorder.state === "paused") rec.recorder.resume();  // onresume starts the background at the cut
   }
   recShown(rec);
+};
+// dragging the meter while paused moves the cut line
+let cutDrag = false;
+$("voiceWave").onpointerdown = e => {
+  const rec = recording; if (!rec || !rec.paused) return;
+  cutDrag = true; e.currentTarget.setPointerCapture(e.pointerId); $("voiceWave").onpointermove(e);
+};
+$("voiceWave").onpointermove = e => {
+  const rec = recording; if (!cutDrag || !rec || !rec.paused) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  cutAt(rec, (e.clientX - r.left) / r.width * rec.end);
+};
+$("voiceWave").onpointerup = $("voiceWave").onpointercancel = () => { cutDrag = false; };
+$("cutBack").onclick = () => recording && recording.paused && cutAt(recording, recording.cut - 0.5);
+$("cutFwd").onclick = () => recording && recording.paused && cutAt(recording, recording.cut + 0.5);
+// listen to the 3 seconds before the cut line, with the background, to hear which word it falls on
+let hearing = null;
+function stopHear() { if (hearing) { hearing.forEach(s => { try { s.stop(); } catch {} }); hearing = null; } $("cutHear").textContent = "ฟังก่อนจุดนี้"; }
+$("cutHear").onclick = async () => {
+  const rec = recording; if (!rec || !rec.paused) return;
+  if (hearing) return stopHear();
+  $("cutHear").textContent = "…";
+  try {
+    if (rec.recorder.state === "paused") { rec.recorder.requestData(); await new Promise(r => setTimeout(r, 150)); }
+    const a = ctx(), take = await a.decodeAudioData(await new Blob(rec.chunks, { type: rec.recorder.mimeType }).arrayBuffer());
+    const kept = joinParts(take, keptParts(rec), rec.delay), from = Math.max(0, rec.cut - 3), until = rec.cut;
+    if (until - from < 0.1) return stopHear();
+    const voiceSrc = a.createBufferSource(); voiceSrc.buffer = kept; voiceSrc.connect(a.destination);
+    const sources = [voiceSrc];
+    if (rec.bed) { const s = a.createBufferSource(); s.buffer = rec.bed; s.loop = true; s.connect(rec.bgGain); sources.push(s); s.start(0, from % rec.bed.duration, until - from); }
+    voiceSrc.start(0, from, until - from); voiceSrc.onended = () => { if (hearing === sources) stopHear(); };
+    hearing = sources; $("cutHear").textContent = "■ หยุดฟัง";
+  } catch { stopHear(); say("ฟังไม่ได้ตอนนี้ ลองอัดต่อหรือกดหยุดแล้วฟัง", "bad"); }
 };
 function stopVoice() {
   const rec = recording;
   if (!rec) return;
-  rec.seconds = Math.min(page.voice_seconds, recTime(rec));
-  recording = null;
-  if (rec.bg) try { rec.bg.stop(); } catch {}
+  if (!rec.paused) closePart(rec);
+  rec.parts = keptParts(rec.paused ? rec : { ...rec, cut: rec.end });
+  rec.seconds = Math.min(page.voice_seconds, rec.parts.reduce((s, p) => s + p.len, 0));
+  recording = null; stopHear();
+  bedStop(rec);
   if (rec.recorder.state !== "inactive") rec.recorder.stop();
   rec.stream.getTracks().forEach(t => t.stop());
 }
@@ -1311,7 +1415,9 @@ function finishVoice(rec) {
   if (!blob.size || seconds < .5) { voiceView("Idle"); return say("เสียงสั้นเกินไป ลองอัดใหม่", "bad"); }
   if (blob.size > 2000000) { voiceView("Idle"); return say("ไฟล์เสียงใหญ่เกิน ลองอัดให้สั้นลง", "bad"); }
   const ext = /mp4|aac|m4a/.test(type) ? "m4a" : /ogg/.test(type) ? "ogg" : "webm";
-  voice = { blob, type, ext, seconds, url: URL.createObjectURL(blob), withBg: rec.withBg, delay: Math.round((rec.delay || 0) * 20) / 20 };
+  // one part from the file's start: nothing was cut, nothing to send; else what of the file is kept, in order
+  const parts = rec.parts.length === 1 && rec.parts[0].r < 0.01 ? null : rec.parts.map(p => [Math.round(p.r * 100) / 100, Math.round((p.r + p.len) * 100) / 100]);
+  voice = { blob, type, ext, seconds, url: URL.createObjectURL(blob), withBg: rec.withBg, delay: Math.round((rec.delay || 0) * 20) / 20, parts };
   voiceDecoded = null; shape = null;
   voiceView("Done"); voiceChoices();
   voiceShape().catch(() => say("เล่นตัวอย่างไม่ได้ ลองอัดใหม่อีกครั้ง", "bad"));
@@ -1621,6 +1727,7 @@ async function sendNow() {
   const mixed = {};
   if (picks.voice_bg && bgVolume !== null) mixed.voice_bg_volume = bgVolume;
   if (picks.voice_bg && voice.withBg === picks.voice_bg) mixed.voice_bg_delay = Math.round(voice.delay * 100) / 100;
+  if (voicePath && voice.parts) mixed.voice_parts = voice.parts;  // what of the file is kept after cuts (setup-voice-mix.sql)
   let { error } = await sb.from("slips").insert(withWho(voicePath ? { ...row, voice_path: voicePath, ...picks, ...mixed } : row));
   // ยังไม่ได้รัน setup-voice-mix.sql: ส่งไปก่อนโดยใช้ความดังและเพลงนำของสตรีมเมอร์
   if (error && voicePath && error.code === "PGRST204" && Object.keys(mixed).length) ({ error } = await sb.from("slips").insert(withWho({ ...row, voice_path: voicePath, ...picks })));
