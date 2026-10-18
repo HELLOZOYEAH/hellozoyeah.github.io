@@ -425,6 +425,9 @@ function amountHands() {
         return;
       }
       $("quick").classList.add(kind === "shake" ? "room-deal" : "room-boss");
+      if (kind === "heart") [chips[0], chips[chips.length - 1]].forEach((b, i) => {  // 10,000: the outer chips bow in respect (คารวะ)
+        b.insertAdjacentHTML("beforeend", `<span class="badge bow d${i * 2}" style="top:-34px;right:-14px">${hand("pray", "", 46)}${sparks(2)}</span>`);
+      });
       $("quick").insertAdjacentHTML("beforeend", `<span class="boss ${move}">${kind === "shake" ? '<span class="rays"></span>' : ""}${hand(kind, "", size)}${sparks(n)}</span>`
         + (kind === "shake" ? `<div class="wave">${Array.from({ length: 9 }, (_, i) => `<img src="hands/clap.png" width="30" height="30" alt="" style="animation-delay:${(i * .09).toFixed(2)}s">`).join("")}</div>` : ""));
       return;
