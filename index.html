@@ -240,6 +240,7 @@
   .rec { display:flex; flex-direction:column; align-items:center; gap:10px; padding:4px 0; }
   .mic { width:84px; height:84px; border-radius:50%; border:1.5px solid var(--accent-line); background:var(--accent-deep); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
   .mic svg { width:34px; height:34px; }
+  #voiceStart { background:#2a1520; border-color:#c2475f; }  /* the record button: red, as recording is */
   .mic.on { width:64px; height:64px; background:#2a1a2e; border-color:#ff8fa3; animation:ring 1.4s ease-out infinite; }
   .mic.on svg { width:26px; height:26px; }
   @keyframes ring { 0% { box-shadow:0 0 0 0 rgba(255,143,163,.35); } 100% { box-shadow:0 0 0 14px rgba(255,143,163,0); } }
@@ -486,7 +487,7 @@
     <div class="vchips" id="bgChips"></div>
     <div class="vol" id="bgVolRow" hidden><span>ความดังพื้นหลัง</span><input type="range" id="bgVol" min="0" max="100" step="5" value="40" aria-label="ความดังพื้นหลัง"><b id="bgVolText">40%</b></div>
     <div class="rec" id="voiceIdle">
-      <button type="button" class="mic" id="voiceStart" aria-label="เริ่มอัดเสียง"><svg viewBox="0 0 24 24" fill="none" stroke="#b9a6ff" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <button type="button" class="mic" id="voiceStart" aria-label="เริ่มอัดเสียง"><svg viewBox="0 0 24 24" fill="none" stroke="#ff8fa3" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
       <div class="hint" id="voiceHint"></div>
       <div class="again">อัดกี่รอบก็ได้ · ฟังก่อนส่ง · ไม่ชอบกดอัดใหม่</div>
       <div class="phones" id="phones" hidden>ใส่หูฟังจะได้ยินเพลงชัด และเพลงไม่ทับเสียงพูด</div>
