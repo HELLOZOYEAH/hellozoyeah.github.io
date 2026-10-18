@@ -255,7 +255,7 @@
   .roll.landed .rollValue { animation:caught .5s cubic-bezier(.3,1.6,.5,1), rainbow 2.4s linear infinite; }
   .rollHint { color:#d8d4e4; font-size:13px; text-align:center; text-shadow:0 1px 3px #000, 0 0 10px #000; }
   .roll.landed .rollHint { font:900 18px "Cinzel", serif; letter-spacing:2px; }
-  .rollCatch { min-width:180px; height:54px; border-radius:16px; border:2px solid transparent; color:#fff; font:600 20px "Bai Jamjuree", sans-serif; cursor:pointer;
+  .rollCatch { min-width:180px; height:54px; padding:0 22px; border-radius:16px; border:2px solid transparent; color:#fff; font:600 20px "Bai Jamjuree", sans-serif; cursor:pointer;
     background:linear-gradient(#15121f, #15121f) padding-box, linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6) border-box;
     background-size:100% 100%, 300% 100%; animation:rainbow 2.4s linear infinite; box-shadow:0 0 18px rgba(255,122,182,.35), 0 0 36px rgba(122,200,255,.25); }
   .roll.landed .rollCatch { visibility:hidden; }
@@ -443,7 +443,7 @@
   </div>
   <div class="rollValue" id="rollValue" aria-live="polite"></div>
   <div class="rollHint" id="rollHint">แตะลูกเต๋า = หมุนแรงขึ้น</div>
-  <button type="button" class="rollCatch" id="rollCatch">จับ!</button>
+  <button type="button" class="rollCatch" id="rollCatch">หยุดเนตรเปรตนี้ซะ</button>
 </div>
 
 <div class="nudge" id="nudge" hidden role="dialog" aria-modal="true" aria-label="แน่ใจนะ">
