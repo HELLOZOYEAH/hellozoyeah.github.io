@@ -204,7 +204,7 @@
   .vchips button small { font-size:10.5px; color:var(--dim); font-weight:400; }
   .vchips button.on { border-color:var(--accent); background:var(--accent-deep); color:#fff; }
   .vchips button.on small { color:#c9b8ff; }
-  /* ให้ ACE เรียกว่าอะไร: Twitch / TikTok / ชื่อเบียว / ไม่บอกชื่อ */
+  /* ให้ ACE เรียกว่าอะไร: ชื่อเบียว / Twitch / TikTok / ไม่บอกชื่อ */
   .who { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:6px; }
   .who button { min-height:54px; border-radius:12px; border:1px solid var(--field-line); background:var(--field); color:var(--ink);
     font:500 13px "Bai Jamjuree", sans-serif; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:2px; }
@@ -343,9 +343,9 @@
     <div class="step"><span class="dots">01</span>ชื่อและข้อความ</div>
     <label>ให้ ACE เรียกคุณว่า</label>
     <div class="who" id="who">
+      <button type="button" data-w="cool">ชื่อเบียว<small>พิมพ์เอง</small></button>
       <button type="button" data-w="twitch">Twitch<small>ชื่อบัญชี</small></button>
       <button type="button" data-w="tiktok">TikTok<small>ชื่อบัญชี</small></button>
-      <button type="button" data-w="cool">ชื่อเบียว<small>พิมพ์เอง</small></button>
       <button type="button" data-w="anon">ไม่บอกชื่อ</button>
     </div>
     <div class="diceRow" id="nameRow">
