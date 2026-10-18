@@ -263,6 +263,8 @@
   .lanes { display:flex; flex-direction:column; gap:6px; width:100%; }
   .lane { background:var(--field); border:1px solid var(--field-line); border-radius:12px; padding:6px 8px 4px; }
   .lane.sel { border-color:#4fbf8a; box-shadow:0 0 0 1px #4fbf8a33; }
+  .lane.sel.l2 { border-color:#9d86e8; box-shadow:0 0 0 1px #9d86e833; }
+  .lane.sel.l2 .laneHead b { color:#c9b8ff; }
   .laneHead { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
   .laneHead b { font-weight:500; color:var(--ink); flex:1; }
   .lane.sel .laneHead b { color:#8ff0b8; }
@@ -283,14 +285,17 @@
   .syncFoot span { flex:1; }
   .syncFoot button { width:34px; height:30px; flex:none; border-radius:9px; border:1px solid var(--field-line); background:#16161a; color:var(--ink); cursor:pointer; font-size:12px; }
   /* paused: the whole take on the meter, a line to drag back to where to record again (what is after it goes) */
-  .cutBar { display:flex; align-items:center; gap:8px; width:100%; font-size:13px; color:#ffd3dc; }
-  .cutBar span { flex:1; text-align:center; }
+  .cutBar { display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; font-size:13px; color:#8ff0b8; }
+  .cutBar.l2 { color:#c9b8ff; }
+  .cutBtns { display:flex; justify-content:center; gap:8px; }
   .cutBar button { height:32px; min-width:34px; border-radius:9px; border:1px solid var(--field-line); background:#16161a; color:var(--ink); cursor:pointer; font:500 12px "Bai Jamjuree", sans-serif; padding:0 10px; }
   /* start over while recording: the take thrown away, a new one (and its background) from the top at once */
   .recBtns { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:14px; width:100%; }
   .redo { justify-self:end; display:flex; align-items:center; gap:6px; height:40px; padding:0 14px; border-radius:999px;
     border:1px solid var(--field-line); background:var(--field); color:var(--ink); font:500 14px "Bai Jamjuree", sans-serif; cursor:pointer; }
   .redo svg { width:16px; height:16px; }
+  .redo.top { width:48px; height:48px; padding:0; justify-content:center; border-radius:50%; }
+  .redo.top svg { width:20px; height:20px; }
   .redo.done { justify-self:start; }
   /* paused: the middle button waits to go on (a record dot), no ring, the tag stops blinking */
   .mic.on.paused { animation:none; background:var(--field); border-color:#5a4450; }
@@ -523,13 +528,12 @@
       <div class="lanes" id="lanes"></div>
       <button type="button" class="addLayer" id="laneAdd" hidden>+ เสียงประสาน<small>แถวใหม่ใต้เสียงแรก · ตอนอัดได้ยินเสียงแรกไปด้วย</small></button>
       <div class="cutBar" id="cutBar" hidden>
-        <button type="button" id="cutBack" aria-label="ถอยเส้น 0.5 วิ">◀</button>
         <span id="cutText"></span>
-        <button type="button" class="hear" id="cutPlay" aria-label="ฟังจากเส้น เส้นเดินตามเสียง">▶ Play</button>
+        <div class="cutBtns"><button type="button" id="cutBack" aria-label="ถอยเส้น 0.5 วิ">◀</button><button type="button" class="hear" id="cutPlay" aria-label="ฟังจากเส้น เส้นเดินตามเสียง">▶ Play</button></div>
       </div>
       <div class="withBg" id="recBg" hidden></div>
       <div class="recBtns">
-        <button type="button" class="redo" id="voiceRedo" aria-label="ทิ้งแถวที่เลือกแล้วอัดใหม่"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>เริ่มใหม่</button>
+        <button type="button" class="redo top" id="voiceTop" aria-label="เล่นตั้งแต่ต้น"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="2.6" height="14" rx="1"/><path d="M9.5 12l9-6.5v13z"/></svg></button>
         <button type="button" class="mic on" id="voicePause" aria-label="พักการอัด"><svg viewBox="0 0 24 24" fill="#ff8fa3" aria-hidden="true"><rect x="7" y="6" width="3.6" height="12" rx="1.2"/><rect x="13.4" y="6" width="3.6" height="12" rx="1.2"/></svg></button>
         <button type="button" class="redo done" id="voiceStop" aria-label="อัดเสร็จ"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>หยุด</button>
       </div>
@@ -1362,7 +1366,7 @@ function closePart(take) {
 function laneRows() {
   const box = $("lanes"); box.innerHTML = "";
   ed.lanes.forEach((take, i) => {
-    const row = document.createElement("div"); row.className = "lane" + (i === ed.sel ? " sel" : "");
+    const row = document.createElement("div"); row.className = `lane l${take.layer}` + (i === ed.sel ? " sel" : "");
     row.innerHTML = `<div class="laneHead"><b>${LANE_NAMES[take.layer - 1]}</b><span>${take.end ? clock(take.end) : ""}</span>`
       + `<button type="button" class="mute${take.muted ? " muted" : ""}" aria-label="${take.muted ? "เปิดเสียงแถวนี้" : "ปิดเสียงแถวนี้ชั่วคราว"}">${take.muted ? SPEAKER_OFF : SPEAKER}</button>`
       + (take.layer === 2 ? `<button type="button" class="bin" aria-label="ลบเสียงประสาน">${BIN_ICON}</button>` : "") + `</div><canvas></canvas>`;
@@ -1425,7 +1429,7 @@ function edShown() {
   $("voicePause").innerHTML = paused ? '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="#ff6b86"/></svg>' : PAUSE_ICON;
   if (ed.bed) $("recBg").textContent = paused ? `♪ ${bgName(ed.withBg)} พักอยู่ · เล่นต่อจากเส้น` : `♪ ${bgName(ed.withBg)} กำลังเล่น · พากไปพร้อมเพลงได้เลย`;
   $("recBg").hidden = !ed.bed;
-  $("cutBar").hidden = !paused;
+  $("cutBar").hidden = !paused; $("cutBar").classList.toggle("l2", take && take.layer === 2);
   $("laneAdd").hidden = !paused || ed.lanes.length > 1 || !ed.lanes[0].end;
   const replaced = take && ed.pos < take.end - 0.04;
   $("cutText").textContent = `${LANE_NAMES[take.layer - 1]} · ` + (replaced ? `ทับตั้งแต่ ${clock(ed.pos)}` : `อัดจาก ${clock(ed.pos)}`);
@@ -1536,16 +1540,11 @@ $("laneAdd").onclick = async () => {
   laneRows(); edShown();
   say("แถวเสียงประสานพร้อมแล้ว · เลื่อนเส้นไปจุดที่จะเริ่ม แล้วแตะ ●");
 };
-$("voiceRedo").onclick = async () => {  // the picked lane thrown away and recorded again from its start
+// from the start: the line back to 0 and every lane played from there (recording, if on, pauses first)
+$("voiceTop").onclick = () => {
   if (!ed) return;
-  const old = sel(); stopPlay();
-  if (old.recording) pauseTake(old);
-  const take = await newTake(old.layer);
-  if (!take) return;
-  endTake(old);
-  ed.lanes[ed.sel] = take;
-  ed.pos = old.layer === 1 ? 0 : (old.parts[0] ? old.parts[0].v : ed.pos);
-  laneRows(); edShown(); recordFrom();
+  const take = recordingNow(); if (take) { pauseTake(take); laneRows(); }
+  ed.pos = 0; edShown(); startPlay(0);
 };
 function endTake(take) {  // a take over for good: its recorder stops and its mic is let go
   if (!take) return;
