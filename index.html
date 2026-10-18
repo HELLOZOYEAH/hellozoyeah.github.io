@@ -25,9 +25,9 @@
   @keyframes pulse { 50% { opacity:.35; } }
 
   .hero { background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:26px 18px 22px; display:flex; flex-direction:column; align-items:center; gap:16px; }
-  #face { display:grid; grid-template-columns:repeat(15, 9px); gap:4px; }
-  #face b { width:9px; height:9px; border-radius:50%; background:#1f1d26; }
-  #face b.on { background:var(--accent); box-shadow:0 0 6px rgba(185,166,255,.8); }
+  /* the streamer's own logo on top (2026-10-18), a soft glow behind its chrome */
+  .logo { display:block; height:150px; width:auto; filter:drop-shadow(0 0 18px rgba(185,166,255,.35)) drop-shadow(0 6px 14px rgba(0,0,0,.6)); }
+  .thanks { margin:0; font-size:15px !important; color:#e6e0fa !important; line-height:1.6; }
   .hero p { margin:0; font-size:13px; color:var(--muted); text-align:center; }
   h1 { margin:4px 0 0; font-size:34px; letter-spacing:1px; color:#fff; text-align:center; overflow-wrap:anywhere; }
 
@@ -154,9 +154,9 @@
   </div>
 
   <div class="hero">
-    <div id="face" aria-hidden="true"></div>
+    <img class="logo" src="logo.png" alt="โลโก้ช่อง">
     <div>
-      <p>ส่งข้อความให้ ACE อ่านบนสตรีม</p>
+      <p class="thanks">13 ปีแล้วนะทุกคน ขอบคุณมาก<br>เว็บนี้ผมทำเองนะ</p>
       <h1 class="dots" id="ch"></h1>
     </div>
   </div>
@@ -268,7 +268,6 @@ let slip = null; // { file, bank, transRef }
 
 // หน้า ACE แบบจุด (ตกแต่ง)
 const FACE = ["...............", "..XXX.....XXX..", ".X...X...X...X.", "...............", ".....X...X.....", "......XXX......", "..............."];
-for (const ch of FACE.join("")) { const d = document.createElement("b"); if (ch === "X") d.className = "on"; $("face").appendChild(d); }
 
 const DROP_HINT = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b9a6ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><br>แตะเพื่อเลือกรูปสลิป · ต้องมี QR บนสลิป`;
 function resetDrop() { $("dropText").innerHTML = DROP_HINT; }
