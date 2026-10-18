@@ -558,7 +558,7 @@ function spinner(rowId, buttonId, pick, show, changed, kind, say) {
       el.style.setProperty("--roll", (.9 - .75 * p).toFixed(2) + "s");
       el.style.setProperty("--sweep", (2.4 - 1.8 * p).toFixed(2) + "s");
     }
-    let v; do { v = pick(); } while (v === s.prev);
+    let v, tries = 0; do { v = pick(); } while (v === s.prev && ++tries < 5);  // a pool of one may repeat
     s.prev = v; show(v);
     $("rollValue").textContent = say(v); $("d20n").textContent = 1 + Math.floor(Math.random() * 20);
     s.timer = setTimeout(step, 1000 / (3 + 19 * p));
@@ -618,12 +618,35 @@ const COOL_TEXTS = ["ข้าคือผู้ถูกเลือกแห�
   "หมาป่าใต้จันทร์เลือดหอนเรียกข้า มันบอกว่าที่นี่สนุก", "ข้าลงนามในพันธสัญญาด้วยหมึกสีรุ้ง จงรับไว้ ACE",
   "เมื่อฟ้าร้องสามครั้ง ข้าจะปรากฏในแชทอีกครา", "ข้าเห็นอนาคตแล้ว เกมต่อไปเจ้าจะชนะ อย่าทำให้ข้าผิดหวัง",
   "ความมืดในใจข้าสว่างขึ้นทุกครั้งที่ดูสตรีมนี้"];
-const textSpin = spinner("textRow", "textDice", () => COOL_TEXTS[Math.floor(Math.random() * COOL_TEXTS.length)], v => { $("text").value = v; },
-                         on => { $("text").readOnly = on; }, "text", v => v);
+// a list rolls through in a shuffled order, one after another, and what was caught stays out until every one has been caught
+// (remembered in this browser), so a donor never lands on the same name or message twice in a row of rolls
+function deck(list, key) {
+  let used = new Set();
+  try { used = new Set(JSON.parse(localStorage.getItem(key) || "[]").filter(x => list.includes(x))); } catch {}
+  let order = [], at = 0;
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  return {
+    next() {
+      if (at >= order.length) { order = shuffle(list.filter(x => !used.has(x))); at = 0; }
+      return order[at++];
+    },
+    keep(v) {
+      if (!list.includes(v)) return;
+      used.add(v);
+      if (used.size >= list.length) used = new Set([v]);  // every one caught: start over, the last one still out
+      order = order.filter(x => x !== v); at = Math.min(at, order.length);
+      try { localStorage.setItem(key, JSON.stringify([...used])); } catch {}
+    },
+  };
+}
+const textDeck = deck(COOL_TEXTS, "donate-dice-texts");
+const textSpin = spinner("textRow", "textDice", textDeck.next, v => { $("text").value = v; },
+                         on => { $("text").readOnly = on; if (!on) textDeck.keep($("text").value); }, "text", v => v);
 const catchText = () => textSpin.stop();
 $("text").addEventListener("pointerdown", e => { if (catchText()) e.preventDefault(); });
-const nameSpin = spinner("nameRow", "dice", () => COOL_NAMES[Math.floor(Math.random() * COOL_NAMES.length)], v => { $("name").value = v; },
-                         on => { $("name").readOnly = on; twitchShown(); }, "name", v => v);
+const nameDeck = deck(COOL_NAMES, "donate-dice-names");
+const nameSpin = spinner("nameRow", "dice", nameDeck.next, v => { $("name").value = v; },
+                         on => { $("name").readOnly = on; if (!on) nameDeck.keep($("name").value); twitchShown(); }, "name", v => v);
 function spinning() { return $("nameRow").classList.contains("spin"); }
 function catchName() { return spinning() && nameSpin.stop(); }
 $("name").addEventListener("pointerdown", e => { if (catchName()) e.preventDefault(); });  // catch!
