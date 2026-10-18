@@ -153,6 +153,18 @@
 
   #send { height:56px; border:0; border-radius:16px; background:var(--accent); color:#120f1c; font:600 18px "Bai Jamjuree", sans-serif; cursor:pointer; box-shadow:0 0 24px rgba(185,166,255,.35); }
   #send:disabled { background:#2a2733; color:#7d7a88; box-shadow:none; cursor:default; }
+  /* the last step glows in the aura your amount has (green, gold, rainbow, pink, platinum), a slow breath */
+  #send[data-aura]:not(:disabled) { animation:aura 1.6s ease-in-out infinite; }
+  #send[data-aura="wow"] { --aura:#5fd38f; --aura-soft:rgba(95,211,143,.6); --aura-two:rgba(95,211,143,.3); }
+  #send[data-aura="gold"] { --aura:#ffc857; --aura-soft:rgba(255,200,87,.7); --aura-two:rgba(255,160,40,.35); }
+  #send[data-aura="love"] { --aura:#ff8fc8; --aura-soft:rgba(255,143,200,.7); --aura-two:rgba(255,100,170,.35); }
+  #send[data-aura="plat"] { --aura:#eef2fa; --aura-soft:rgba(235,240,250,.65); --aura-two:rgba(200,215,240,.3); }
+  #send[data-aura="rainbow"] { --aura:transparent; --aura-soft:rgba(255,122,182,.6); --aura-two:rgba(122,200,255,.45); border:3px solid transparent;
+    background:linear-gradient(var(--accent), var(--accent)) padding-box, linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6) border-box;
+    background-size:100% 100%, 300% 100%; }
+  #send[data-aura="rainbow"]:not(:disabled) { animation:aura 1.6s ease-in-out infinite, rainbow 2.4s linear infinite; }
+  @keyframes aura { 0%, 100% { box-shadow:0 0 0 2px var(--aura), 0 0 18px var(--aura-soft), 0 0 36px var(--aura-two); }
+    50% { box-shadow:0 0 0 2px var(--aura), 0 0 30px var(--aura-soft), 0 0 64px var(--aura-two); } }
   #msg { min-height:1.4em; text-align:center; font-size:14px; }
   .ok { color:var(--ok); } .bad { color:var(--bad); }
   .foot { text-align:center; font-size:12px; color:var(--dim); }
@@ -197,6 +209,20 @@
   .who button small { font-size:10px; color:var(--dim); font-weight:400; }
   .who button.on { border-color:var(--accent); background:var(--accent-deep); color:#fff; }
   .who button.on small { color:#c9b8ff; }
+  /* every tap on the die spins it harder and longer; it never stops by itself: tap the name to catch it */
+  .nameRow { position:relative; }
+  .nameRow input { padding-right:62px; }
+  #dice { position:absolute; right:6px; top:50%; width:48px; height:48px; margin-top:-24px; border:0; padding:0; background:none; cursor:pointer; line-height:0; }
+  #dice img { display:block; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
+  #dice:active img { transform:scale(.88); }
+  .nameRow.spin #dice img { animation:roll var(--roll, .8s) linear infinite; }
+  @keyframes roll { to { transform:rotate(360deg); } }
+  .nameRow.spin input { cursor:pointer; caret-color:transparent; border-color:transparent; color:#fff;
+    background:linear-gradient(var(--field), var(--field)) padding-box, linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6) border-box;
+    background-size:100% 100%, 300% 100%; animation:rainbow var(--sweep, 2.4s) linear infinite;
+    box-shadow:0 0 calc(10px + 30px * var(--power, 0)) rgba(197,155,255,calc(.25 + .45 * var(--power, 0))); }
+  .nameRow.caught input { animation:caught .5s cubic-bezier(.3,1.6,.5,1); border-color:#ffd27a; box-shadow:0 0 22px rgba(255,210,122,.45); }
+  @keyframes caught { 0% { transform:scale(.94); } 60% { transform:scale(1.04); } 100% { transform:none; } }
   .linkish { align-self:center; background:none; border:0; color:var(--muted); text-decoration:underline; font:inherit; font-size:13px; cursor:pointer; padding:2px; }
   /* แน่ใจนะ? (ส่งโดยไม่มีเสียงหรือคลิป): รูปมีมเต็มการ์ด คำเตือนเป็นตัวหนังสือแบบมีม */
   .nudge { position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:18px; }
@@ -239,7 +265,10 @@
       <button type="button" data-w="cool">ชื่อเบียว<small>พิมพ์เอง</small></button>
       <button type="button" data-w="anon">ไม่บอกชื่อ</button>
     </div>
-    <input id="name" maxlength="40" placeholder="เช่น จอมมารแห่งความมืด" autocomplete="nickname" aria-label="ชื่อเบียว">
+    <div class="nameRow" id="nameRow">
+      <input id="name" maxlength="40" placeholder="เช่น จอมมารแห่งความมืด" autocomplete="nickname" aria-label="ชื่อเบียว">
+      <button type="button" id="dice" aria-label="สุ่มชื่อเบียว"><img src="hands/dice.png" width="44" height="44" alt=""></button>
+    </div>
     <div class="tw" id="twRow"><span id="platIcon"></span><b id="platHost">twitch.tv/</b><input id="twitch" maxlength="60" placeholder="ชื่อบัญชี" autocomplete="username" autocapitalize="off" spellcheck="false" aria-label="ชื่อบัญชี"></div>
     <div class="hint" id="twitchHint"></div>
     <button type="button" class="linkish" id="linkTwitch">ผูก Twitch ด้วย (ไม่บังคับ)</button>
@@ -304,7 +333,7 @@
     </label>
   </section>
 
-  <button id="send" disabled>ส่งโดเนทให้ ACE</button>
+  <button id="send" disabled>Alfa ยืนยันคำสั่ง</button>
   <div id="msg" role="status" aria-live="polite"></div>
   <div class="foot">ชื่อ ยอด และข้อความจะขึ้นบนสตรีม · รูปสลิปเห็นเฉพาะเจ้าของช่อง</div>
 </main>
@@ -380,18 +409,57 @@ for (const b of $("who").children) b.onclick = () => {
   twitchShown();
   (who === "cool" ? $("name") : who === "anon" ? null : $("twitch"))?.focus();
 };
+// ชื่อเบียว to spin: grand, dark, a few silly
+const COOL_NAMES = ["จอมมารแห่งความมืด", "ราชันย์เงาสีเลือด", "อัศวินดาบทมิฬ", "ผู้กุมชะตาแห่งนิรันดร์", "เทพมังกรเพลิงนรก",
+  "จักรพรรดิแห่งรัตติกาล", "นักดาบไร้เงา", "ผู้พิทักษ์ประตูมิติ", "แม่มดจันทร์สีชาด", "ราชาปีศาจผู้เดียวดาย", "ผู้ถูกเลือกแห่งคำพยากรณ์",
+  "เงาที่สิบสาม", "จอมเวทตาข้างซ้าย", "มือขวาที่ถูกผนึก", "นักล่าวิญญาณยามเที่ยงคืน", "ราชินีน้ำแข็งนิรันดร์", "ทายาทสายฟ้าดำ",
+  "ผู้ตื่นรู้ระดับ SSS", "นักรบไร้นามแห่งหุบเขาหมอก", "เจ้าแห่งความว่างเปล่า", "ดวงตาแห่งเหตุและผล", "ปีกดำที่ร่วงหล่น",
+  "จอมทัพโลกคู่ขนาน", "นักบวชผู้ทรยศแสง", "ฟีนิกซ์ไม่มีวันมอด", "หมาป่าใต้จันทร์เลือด", "ผู้ครองบัลลังก์กระดูก",
+  "ดาบที่เจ็ดแห่งวันสิ้นโลก", "ผู้อัญเชิญดวงดาว", "ผู้ไร้พ่ายแห่งรัตติกาล", "เทพแห่งการตื่นสาย", "จอมมารผู้ยังไม่ทำการบ้าน",
+  "ราชาแห่งข้าวมันไก่", "ผู้กล้าที่หลงทางมาสามปี"];
+const dice = { power: 0, timer: 0, last: 0, at: -1 };
+function spinning() { return $("nameRow").classList.contains("spin"); }
+function spinStep() {
+  const now = performance.now(), dt = dice.last ? (now - dice.last) / 1000 : 0;
+  dice.last = now;
+  dice.power = Math.max(0, dice.power - dt * .9);  // each tap is about a second of full spin, and they add up
+  const p = Math.min(1, dice.power / 3), row = $("nameRow");
+  row.style.setProperty("--power", p.toFixed(2));
+  row.style.setProperty("--roll", (.9 - .75 * p).toFixed(2) + "s");
+  row.style.setProperty("--sweep", (2.4 - 1.8 * p).toFixed(2) + "s");
+  let at; do { at = Math.floor(Math.random() * COOL_NAMES.length); } while (at === dice.at);
+  dice.at = at; $("name").value = COOL_NAMES[at];
+  dice.timer = setTimeout(spinStep, 1000 / (3 + 19 * p));  // never stops: 3 names a second until caught
+}
+$("dice").onclick = () => {
+  dice.power = Math.min(dice.power + 1.2, 8);
+  const row = $("nameRow");
+  row.classList.remove("caught");
+  if (!spinning()) { row.classList.add("spin"); $("name").readOnly = true; dice.last = 0; spinStep(); twitchShown(); }
+};
+function catchName() {
+  if (!spinning()) return false;
+  clearTimeout(dice.timer); dice.power = 0;
+  const row = $("nameRow");
+  row.classList.remove("spin"); $("name").readOnly = false;
+  void row.offsetWidth; row.classList.add("caught");
+  twitchShown();
+  return true;
+}
+$("name").addEventListener("pointerdown", e => { if (catchName()) e.preventDefault(); });  // catch!
 $("linkTwitch").onclick = () => { linked = !linked; platform = "twitch"; twitchShown(); if (linked) $("twitch").focus(); };
 function twitchShown() {
   for (const b of $("who").children) b.classList.toggle("on", b.dataset.w === who);
   const account = who === "twitch" || who === "tiktok" || (who === "cool" && linked);
   if (who === "cool" && linked) platform = "twitch";
-  $("name").hidden = who !== "cool";
+  $("nameRow").hidden = who !== "cool";
+  if (who !== "cool") catchName();  // left ชื่อเบียว mid-spin: keep where it was
   $("twRow").hidden = !account;
   $("linkTwitch").hidden = who !== "cool";
   $("linkTwitch").textContent = linked ? "ไม่ผูก Twitch" : "ผูก Twitch ด้วย (ไม่บังคับ)";
   const hint = $("twitchHint");
   if (who === "anon") { hint.className = "hint"; hint.textContent = "ACE เรียกว่า \"ไม่ระบุชื่อ\""; return { shown: "", login: "", ok: true, platform }; }
-  if (!account) { hint.className = "hint"; hint.textContent = "ACE เรียกตามนี้เลย"; return { shown: "", login: "", ok: true, platform }; }
+  if (!account) { hint.className = "hint"; hint.textContent = spinning() ? "กดลูกเต๋าซ้ำ = หมุนแรงขึ้น · แตะชื่อเพื่อจับ!" : "ACE เรียกตามนี้เลย · หรือกดลูกเต๋าสุ่มชื่อ"; return { shown: "", login: "", ok: true, platform }; }
   const t = twitchTyped(), P = PLATFORMS[platform];
   $("platIcon").innerHTML = P.icon; $("platHost").textContent = P.host;
   hint.className = t.ok ? "hint" : "hint bad";
@@ -421,6 +489,11 @@ function centre(badge, size) {
   Object.assign(badge.style, { top: -Math.round(size * .8) + "px", left: "50%", right: "auto", marginLeft: -Math.round(size / 2) + "px" });
 }
 function amountHands() {
+  amountJoy();
+  const aura = ["wow", "gold", "rainbow", "love", "plat"].find(c => $("amount").classList.contains(c));
+  if (aura) $("send").dataset.aura = aura; else delete $("send").dataset.aura;
+}
+function amountJoy() {
   const chips = [...$("quick").children].filter(b => b.dataset.amount), amt = Number($("amount").value);
   const looks = ["wow", "nope", "gold", "rainbow", "love", "plat"];
   for (const b of chips) { b.querySelectorAll(".hand, .badge").forEach(h => h.remove()); b.classList.remove(...looks); }
@@ -802,6 +875,7 @@ $("nudgeImg").onerror = noMeme;
 if ($("nudgeImg").complete && !$("nudgeImg").naturalWidth) noMeme();
 for (const ch of FACE.join("")) { const d = document.createElement("b"); if (ch === "X") d.className = "on"; $("nudgeFace").appendChild(d); }
 $("send").onclick = () => {
+  catchName();  // sent mid-spin: the name on screen is the one
   if (who === "cool" && !$("name").value.trim()) { $("name").focus(); return say("พิมพ์ชื่อเบียวก่อน หรือกด ไม่บอกชื่อ", "bad"); }
   if ((who === "twitch" || who === "tiktok") && !twitchTyped().login) { $("twitch").focus(); return say("ใส่ชื่อบัญชีก่อน หรือกด ชื่อเบียว / ไม่บอกชื่อ", "bad"); }
   if (nudgeNeeded()) { $("nudge").hidden = false; return; }
