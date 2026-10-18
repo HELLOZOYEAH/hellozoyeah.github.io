@@ -213,17 +213,18 @@
   .who button.on small { color:#c9b8ff; }
   /* a die (ชื่อเบียว, the amount): every tap spins it harder and longer; it never stops by itself: tap the box to catch */
   .diceRow { position:relative; }
-  .diceRow input { padding-right:62px; }
+  .diceRow input, .diceRow textarea { padding-right:62px; }
+  .textRow .diceBtn { top:8px; margin-top:0; }  /* the message box: its die at the top corner */
   .diceBtn { position:absolute; right:6px; top:50%; width:48px; height:48px; margin-top:-24px; border:0; padding:0; background:none; cursor:pointer; line-height:0; }
   .diceBtn img { display:block; filter:drop-shadow(0 3px 6px rgba(0,0,0,.5)); }
   .diceBtn:active img { transform:scale(.88); }
   .diceRow.spin .diceBtn img { animation:roll var(--roll, .8s) linear infinite; }
   @keyframes roll { to { transform:rotate(360deg); } }
-  .diceRow.spin input { cursor:pointer; caret-color:transparent; border-color:transparent; color:#fff;
+  .diceRow.spin input, .diceRow.spin textarea { cursor:pointer; caret-color:transparent; border-color:transparent; color:#fff;
     background:linear-gradient(var(--field), var(--field)) padding-box, linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6) border-box;
     background-size:100% 100%, 300% 100%; animation:rainbow var(--sweep, 2.4s) linear infinite;
     box-shadow:0 0 calc(10px + 30px * var(--power, 0)) rgba(197,155,255,calc(.25 + .45 * var(--power, 0))); }
-  .diceRow.caught input { animation:caught .5s cubic-bezier(.3,1.6,.5,1); border-color:#ffd27a; box-shadow:0 0 22px rgba(255,210,122,.45); }
+  .diceRow.caught input, .diceRow.caught textarea { animation:caught .5s cubic-bezier(.3,1.6,.5,1); border-color:#ffd27a; box-shadow:0 0 22px rgba(255,210,122,.45); }
   /* the roll (2026-10-18): a die pops into the middle of the screen, a d20 as Baldur's Gate 3 rolls it, clear and milky
      like frosted crystal, the page's running rainbow on its edges; it tumbles faster the more it is tapped, the light behind it grows; จับ! lands it on a natural 20 */
   .roll { position:fixed; inset:0; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
@@ -252,6 +253,7 @@
   @keyframes land { 0% { transform:rotate(-40deg) scale(1.5); } 100% { transform:none; } }
   .rollValue { width:100%; height:64px; display:flex; align-items:center; justify-content:center; line-height:1.25; text-align:center; color:#fff; font:600 24px "Bai Jamjuree", sans-serif; text-shadow:0 0 18px rgba(197,155,255,.6); overflow-wrap:anywhere; }
   .roll[data-kind="amount"] .rollValue { font:900 34px "Doto", monospace; white-space:nowrap; }
+  .roll[data-kind="text"] .rollValue { font-size:17px; line-height:1.3; }
   .roll .rollValue, .roll.landed .rollHint { background:linear-gradient(90deg, #ff7ab6, #ffd27a, #7dffb2, #7ac8ff, #c59bff, #ff7ab6); background-size:300% 100%;
     -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:none;
     filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)) drop-shadow(0 0 12px rgba(197,155,255,.35)); animation:rainbow 2.4s linear infinite; }
@@ -356,7 +358,10 @@
     <div class="hint" id="twitchHint"></div>
     <button type="button" class="linkish" id="linkTwitch">ผูก Twitch ด้วย (ไม่บังคับ)</button>
     <label for="text">ข้อความ (ไม่เกิน 255 ตัว)</label>
-    <textarea id="text" maxlength="255" placeholder="ไหนอยากบอกอะไรว่ามาซิ"></textarea>
+    <div class="diceRow textRow" id="textRow">
+      <textarea id="text" maxlength="255" placeholder="ไหนอยากบอกอะไรว่ามาซิ"></textarea>
+      <button type="button" class="diceBtn" id="textDice" aria-label="สุ่มข้อความ"><img src="hands/dice.png" width="44" height="44" alt=""></button>
+    </div>
   </section>
 
   <section class="card" id="extraCard" hidden>
@@ -597,6 +602,26 @@ const canStop = () => rolling && $("roll").classList.contains("reveal");  // onl
 $("rollCatch").onclick = () => canStop() && rolling.stop();
 $("rollValue").onclick = () => canStop() && rolling.stop();
 addEventListener("keydown", e => { if (canStop() && (e.key === "Escape" || e.key === "Enter" || e.key === " ")) { e.preventDefault(); rolling.stop(); } });
+const COOL_TEXTS = ["ข้าคือผู้ถูกเลือกแห่งพร้อมเพย์ เงินนี้คือเครื่องสังเวยต่อเทพแห่งสตรีม",
+  "ตาข้างซ้ายของข้าสั่นอีกแล้ว... มันบอกว่าสตรีมนี้ต้องได้รับพลังเพิ่ม", "มือขวาที่ถูกผนึกของข้ากดโอนไปเอง ข้าห้ามมันไม่ทันจริง ๆ",
+  "ในโลกคู่ขนาน ข้ากับเจ้าเคยร่วมรบกันมา วันนี้ข้ากลับมาตามสัญญา", "ด้วยพลังแห่งรัตติกาล ข้าขอผนึกโดเนทนี้ไว้ในหัวใจเจ้า ACE",
+  "เมื่อดวงจันทร์สีเลือดขึ้น ข้าจะกลับมาโดเนทอีกครั้ง จงรอคอย", "ข้าเดินทางข้ามมิติมาสามวันสามคืน เพื่อมาบอกว่า สู้ ๆ นะ",
+  "จงรับพลังนี้ไป ACE แล้วใช้มันปกป้องสตรีมนี้ให้ถึงรุ่งเช้า", "คำพยากรณ์โบราณกล่าวไว้ ผู้ใดโดเนทคืนนี้ จะได้ยินชื่อตนดังก้องฟ้า",
+  "ข้าคือเงาที่สิบสาม ข้าเฝ้ามองสตรีมนี้มานานแสนนาน", "ปีกดำของข้าหักไปหนึ่งข้าง แต่ยังพอบินมาโดเนทได้",
+  "เลือดมังกรในกายข้าเดือดพล่าน ทุกครั้งที่ได้ยินเสียงสตรีมนี้", "ข้าสละชานมไข่มุกหนึ่งแก้วเพื่อพิธีกรรมนี้ จงจดจำการเสียสละของข้า",
+  "นี่ไม่ใช่เงิน... นี่คือผลึกพลังที่ข้าสะสมมาทั้งเดือน", "ดาบที่เจ็ดแห่งวันสิ้นโลกสั่งให้ข้ามา ข้ามิอาจขัดคำสั่ง",
+  "ผู้ครองบัลลังก์กระดูกส่งข้ามาแสดงความเคารพ จงรับไว้", "จงฟังให้ดี ACE ข้ามาจากอนาคต ที่นั่นช่องนี้ยิ่งใหญ่มาก",
+  "ข้าตื่นสายมาสามยุค วันนี้ข้าตื่นทันสตรีม นี่คือปาฏิหาริย์", "เจ็ดปีแห่งการเดินทาง ข้ายังอยู่ตรงนี้ ข้างกายเจ้าเสมอ",
+  "ม่านมิติเปิดออกแล้ว ข้าส่งพลังผ่านรอยแยกมาให้เจ้า", "อย่าถามว่าข้าเป็นใคร จงรู้ไว้แค่ว่าข้าเป็นแฟนคลับ",
+  "สัญญาเลือดของเราสมบูรณ์แล้ว ต่อจากนี้ข้าจะดูสตรีมนี้ทุกคืน", "ข้าเขียนคำว่าสู้ ๆ ด้วยภาษามังกรโบราณ แปลไทยให้แล้ว: สู้ ๆ",
+  "พลังของข้าถูกผนึกไว้ 99% ที่โอนมานี้แค่ 1% เท่านั้น", "ข้าคือจอมมารผู้ยังไม่ทำการบ้าน แต่คืนนี้ข้าเลือกมาที่นี่",
+  "หมาป่าใต้จันทร์เลือดหอนเรียกข้า มันบอกว่าที่นี่สนุก", "ข้าลงนามในพันธสัญญาด้วยหมึกสีรุ้ง จงรับไว้ ACE",
+  "เมื่อฟ้าร้องสามครั้ง ข้าจะปรากฏในแชทอีกครา", "ข้าเห็นอนาคตแล้ว เกมต่อไปเจ้าจะชนะ อย่าทำให้ข้าผิดหวัง",
+  "ความมืดในใจข้าสว่างขึ้นทุกครั้งที่ดูสตรีมนี้"];
+const textSpin = spinner("textRow", "textDice", () => COOL_TEXTS[Math.floor(Math.random() * COOL_TEXTS.length)], v => { $("text").value = v; },
+                         on => { $("text").readOnly = on; }, "text", v => v);
+const catchText = () => textSpin.stop();
+$("text").addEventListener("pointerdown", e => { if (catchText()) e.preventDefault(); });
 const nameSpin = spinner("nameRow", "dice", () => COOL_NAMES[Math.floor(Math.random() * COOL_NAMES.length)], v => { $("name").value = v; },
                          on => { $("name").readOnly = on; twitchShown(); }, "name", v => v);
 function spinning() { return $("nameRow").classList.contains("spin"); }
@@ -1099,7 +1124,7 @@ $("nudgeImg").onerror = noMeme;
 if ($("nudgeImg").complete && !$("nudgeImg").naturalWidth) noMeme();
 for (const ch of FACE.join("")) { const d = document.createElement("b"); if (ch === "X") d.className = "on"; $("nudgeFace").appendChild(d); }
 $("send").onclick = () => {
-  catchName(); catchAmount();  // sent mid-spin: what is on screen is the one
+  catchName(); catchAmount(); catchText();  // sent mid-spin: what is on screen is the one
   if (who === "cool" && !$("name").value.trim()) { $("name").focus(); return say("พิมพ์ชื่อเบียวก่อน หรือกด ไม่บอกชื่อ", "bad"); }
   if ((who === "twitch" || who === "tiktok") && !twitchTyped().login) { $("twitch").focus(); return say("ใส่ชื่อบัญชีก่อน หรือกด ชื่อเบียว / ไม่บอกชื่อ", "bad"); }
   if (nudgeNeeded()) { $("nudge").hidden = false; return; }
