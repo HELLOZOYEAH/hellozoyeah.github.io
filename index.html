@@ -44,8 +44,17 @@
   .big { display:flex; align-items:baseline; justify-content:center; gap:8px; padding:6px 0; }
   #big { font-size:64px; line-height:1; color:#fff; text-shadow:0 0 18px rgba(185,166,255,.45); }
   .big span { font-size:18px; color:var(--muted); }
-  .quick { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
-  .quick button { height:46px; border-radius:12px; border:1px solid var(--field-line); background:var(--field); color:var(--ink); font-size:18px; cursor:pointer; }
+  .quick { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; position:relative; }
+  .quick button { height:46px; border-radius:12px; border:1px solid var(--field-line); background:var(--field); color:var(--ink); font-size:18px; cursor:pointer; position:relative; }
+  /* a little dot hand that beckons: at 20 it points at 50, at 50 at 100, at 100 down to your own amount; your own amount: thumbs up */
+  .hand { position:absolute; display:block; line-height:0; pointer-events:none; filter:drop-shadow(0 0 4px rgba(185,166,255,.7)); z-index:2; }
+  .hand.right { animation:beckonX 1.3s ease-in-out infinite; }
+  .hand.down { animation:beckonY 1.3s ease-in-out infinite; }
+  .hand.up { top:-9px; right:-6px; animation:beam 1.6s ease-in-out infinite; }
+  @keyframes beckonX { 0%, 100% { opacity:.35; transform:translate(-3px, -50%); } 50% { opacity:1; transform:translate(2px, -50%); } }
+  @keyframes beckonY { 0%, 100% { opacity:.35; transform:translate(-50%, -3px); } 50% { opacity:1; transform:translate(-50%, 2px); } }
+  @keyframes beam { 0%, 100% { opacity:.55; transform:scale(.92); } 50% { opacity:1; transform:scale(1.06); } }
+  @media (prefers-reduced-motion: reduce) { .hand { animation:none !important; } }
   .quick button.on { border-color:var(--accent); background:var(--accent-deep); color:#fff; }
   .qrbox { align-self:center; background:#fff; border-radius:16px; padding:12px; box-shadow:0 0 0 1px var(--accent-line), 0 0 30px rgba(185,166,255,.25); }
   #qr svg { display:block; width:210px; height:210px; }
@@ -93,6 +102,28 @@
   .vchips button small { font-size:10.5px; color:var(--dim); font-weight:400; }
   .vchips button.on { border-color:var(--accent); background:var(--accent-deep); color:#fff; }
   .vchips button.on small { color:#c9b8ff; }
+  /* ให้ ACE เรียกว่าอะไร: Twitch / TikTok / ชื่อเบียว / ไม่บอกชื่อ */
+  .who { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:6px; }
+  .who button { min-height:54px; border-radius:12px; border:1px solid var(--field-line); background:var(--field); color:var(--ink);
+    font:500 13px "Bai Jamjuree", sans-serif; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:2px; }
+  .who button small { font-size:10px; color:var(--dim); font-weight:400; }
+  .who button.on { border-color:var(--accent); background:var(--accent-deep); color:#fff; }
+  .who button.on small { color:#c9b8ff; }
+  .linkish { align-self:center; background:none; border:0; color:var(--muted); text-decoration:underline; font:inherit; font-size:13px; cursor:pointer; padding:2px; }
+  /* แน่ใจนะ? (ส่งโดยไม่มีเสียงหรือคลิป): รูปมีมเต็มการ์ด คำเตือนเป็นตัวหนังสือแบบมีม */
+  .nudge { position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:18px; }
+  .nudge[hidden] { display:none !important; }
+  .nudgeCard { width:100%; max-width:380px; background:#17161c; border:1px solid #2c2a36; border-radius:20px; overflow:hidden; animation:pop .28s cubic-bezier(.2,.9,.3,1.3); }
+  @keyframes pop { from { transform:scale(.85); opacity:0; } to { transform:none; opacity:1; } }
+  .meme { position:relative; height:290px; background:#0e0d12; display:flex; align-items:center; justify-content:center; }
+  .meme img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .meme .face { display:grid; grid-template-columns:repeat(15, 12px); gap:5px; margin-bottom:40px; }
+  .meme .face b { width:12px; height:12px; border-radius:50%; background:#1f1d26; }
+  .meme .face b.on { background:var(--accent); box-shadow:0 0 8px rgba(185,166,255,.8); }
+  .caption { position:absolute; left:10px; right:10px; bottom:12px; text-align:center; color:#fff; font:700 22px/1.25 "Bai Jamjuree", sans-serif;
+    text-shadow:0 0 3px #000, 0 0 3px #000, 0 2px 6px #000; }
+  .nudgeBody { padding:12px 14px 14px; display:flex; flex-direction:column; gap:6px; align-items:center; }
+  .nudgeBody .pair button:first-child { background:var(--accent); border-color:var(--accent); color:#120f1c; font-weight:600; }
   .warn { font-size:12px; color:#c9b8ff; background:#1a1726; border:1px solid #2c2640; border-radius:10px; padding:8px 10px; }
 </style>
 </head>
@@ -113,18 +144,17 @@
 
   <section class="card">
     <div class="step"><span class="dots">01</span>ชื่อและข้อความ</div>
-    <label class="check"><input type="checkbox" id="anon">ไม่ระบุตัวตน (ACE อ่านว่า "ไม่ระบุชื่อ")</label>
-    <div id="whoRow" style="display:flex;flex-direction:column;gap:10px">
-    <label for="twitch">คุณดูสตรีมจาก <span class="opt">ไม่บังคับ</span></label>
-    <div class="plat" id="plat"><button type="button" data-p="twitch">Twitch</button><button type="button" data-p="tiktok">TikTok</button></div>
-    <div class="tw"><span id="platIcon"></span><b id="platHost">twitch.tv/</b><input id="twitch" maxlength="60" placeholder="ชื่อบัญชี" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
-    <div class="hint" id="twitchHint">ใส่แล้ว ACE จำได้ว่าเป็นคุณ หัวใจของ ACE เข้าบัญชีนี้</div>
-    <label class="check" id="useRow" hidden><input type="checkbox" id="useTwitch" checked><span id="useText">ให้ ACE อ่านชื่อ Twitch นี้</span></label>
-    <div id="nameRow" style="display:flex;flex-direction:column;gap:10px">
-      <label for="name">ชื่อที่ให้ ACE อ่าน</label>
-      <input id="name" maxlength="40" placeholder="เช่น มิมิ" autocomplete="nickname">
+    <label>ให้ ACE เรียกคุณว่า</label>
+    <div class="who" id="who">
+      <button type="button" data-w="twitch">Twitch<small>ชื่อบัญชี</small></button>
+      <button type="button" data-w="tiktok">TikTok<small>ชื่อบัญชี</small></button>
+      <button type="button" data-w="cool">ชื่อเบียว<small>พิมพ์เอง</small></button>
+      <button type="button" data-w="anon">ไม่บอกชื่อ</button>
     </div>
-    </div>
+    <input id="name" maxlength="40" placeholder="เช่น จอมมารแห่งความมืด" autocomplete="nickname" aria-label="ชื่อเบียว">
+    <div class="tw" id="twRow"><span id="platIcon"></span><b id="platHost">twitch.tv/</b><input id="twitch" maxlength="60" placeholder="ชื่อบัญชี" autocomplete="username" autocapitalize="off" spellcheck="false" aria-label="ชื่อบัญชี"></div>
+    <div class="hint" id="twitchHint"></div>
+    <button type="button" class="linkish" id="linkTwitch">ผูก Twitch ด้วย (ไม่บังคับ)</button>
     <label for="text">ข้อความ (ไม่เกิน 255 ตัว)</label>
     <textarea id="text" maxlength="255" placeholder="ไหนอยากบอกอะไรว่ามาซิ"></textarea>
   </section>
@@ -191,6 +221,20 @@
   <div class="foot">ชื่อ ยอด และข้อความจะขึ้นบนสตรีม · รูปสลิปเห็นเฉพาะเจ้าของช่อง</div>
 </main>
 
+<div class="nudge" id="nudge" hidden role="dialog" aria-modal="true" aria-label="แน่ใจนะ">
+  <div class="nudgeCard">
+    <div class="meme">
+      <img id="nudgeImg" src="nudge.jpg" alt="">
+      <div class="face" id="nudgeFace" hidden aria-hidden="true"></div>
+      <div class="caption">แน่ใจนะว่าจะไม่อัดเสียง<br>หรือส่งคลิปอะไรหน่อย</div>
+    </div>
+    <div class="nudgeBody">
+      <div class="pair"><button type="button" id="nudgeVoice">อัดเสียง</button><button type="button" id="nudgeClip">ส่งคลิป</button></div>
+      <button type="button" class="linkish" id="nudgeSend">ส่งแม่มเลย</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -218,47 +262,102 @@ $("amountLabel").textContent = `หรือใส่ยอดเอง (ขั�
 try {
   $("name").value = localStorage.getItem("donate-name") || "";
   $("twitch").value = localStorage.getItem("donate-twitch") || "";
-  $("useTwitch").checked = localStorage.getItem("donate-use-twitch") !== "0";
 } catch {}
 
 // ชื่อบน Twitch หรือ TikTok: พิมพ์ชื่อ หรือวางลิงก์โปรไฟล์ได้ (ต้องตรงกับ setup-twitch.sql และ aceace/donations/people.py)
 const PLATFORMS = {
   twitch: { host: "twitch.tv/", url: /^(https?:\/\/)?(www\.|m\.)?twitch\.tv\//i, ok: /^[a-z0-9_]{3,25}$/, icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="#9146ff" aria-hidden="true"><path d="M4 2 2 6v14h5v3h3l3-3h4l5-5V2H4zm16 12-3 3h-5l-3 3v-3H5V4h15v10zm-4-7h-2v5h2V7zm-5 0H9v5h2V7z"/></svg>',
-            hint: "ใส่แล้ว ACE จำได้ว่าเป็นคุณ หัวใจของ ACE เข้าบัญชีนี้", bad: "ชื่อ Twitch ใช้ได้แค่ a-z 0-9 และ _ ยาว 3–25 ตัว", use: "ให้ ACE อ่านชื่อ Twitch นี้" },
+            hint: "ACE เรียกชื่อนี้ · หัวใจของ ACE เข้าบัญชีนี้", bad: "ชื่อ Twitch ใช้ได้แค่ a-z 0-9 และ _ ยาว 3–25 ตัว" },
   tiktok: { host: "tiktok.com/@", url: /^(https?:\/\/)?(www\.|m\.)?tiktok\.com\/@?/i, ok: /^[a-z0-9_.]{2,24}$/,
             icon: '<svg width="16" height="18" viewBox="0 0 24 24" fill="#ff4f8b" aria-hidden="true"><path d="M16.6 2h-3.4v13.4a3 3 0 1 1-3-3c.3 0 .6 0 .9.1V9a6.5 6.5 0 1 0 5.5 6.4V8.6a8 8 0 0 0 4.4 1.4V6.6c-2.4 0-4.4-2-4.4-4.6z"/></svg>',
-            hint: "ใส่แล้ว ACE จำได้ว่าคุณมาจาก TikTok", bad: "ชื่อ TikTok ใช้ได้แค่ a-z 0-9 _ และ . ยาว 2–24 ตัว", use: "ให้ ACE อ่านชื่อ TikTok นี้" },
+            hint: "ACE เรียกชื่อนี้ · จำได้ว่าคุณมาจาก TikTok", bad: "ชื่อ TikTok ใช้ได้แค่ a-z 0-9 _ และ . ยาว 2–24 ตัว" },
 };
-let platform = "twitch";
-try { if (localStorage.getItem("donate-platform") === "tiktok") platform = "tiktok"; } catch {}
+// who: twitch / tiktok (ACE reads that account's name) · cool (a name typed, ชื่อเบียว; may link a Twitch for hearts) · anon
+let platform = "twitch", who = "twitch", linked = false;
+try {
+  if (localStorage.getItem("donate-platform") === "tiktok") platform = "tiktok";
+  const saved = localStorage.getItem("donate-who");
+  who = ["twitch", "tiktok", "cool", "anon"].includes(saved) ? saved
+      : localStorage.getItem("donate-twitch") && localStorage.getItem("donate-use-twitch") !== "0" ? platform
+      : localStorage.getItem("donate-name") ? "cool" : "twitch";
+  linked = who === "cool" && !!localStorage.getItem("donate-twitch") && localStorage.getItem("donate-linked") === "1";
+} catch {}
 function twitchTyped() {
   const P = PLATFORMS[platform];
   const raw = $("twitch").value.trim().replace(P.url, "").replace(/^@/, "").replace(/[/?#].*$/, "");
   return { shown: raw, login: raw.toLowerCase(), ok: raw === "" || P.ok.test(raw.toLowerCase()), platform };
 }
-for (const b of $("plat").children) b.onclick = () => { platform = b.dataset.p; twitchShown(); $("twitch").focus(); };
+for (const b of $("who").children) b.onclick = () => {
+  who = b.dataset.w;
+  if (who === "twitch" || who === "tiktok") platform = who;
+  twitchShown();
+  (who === "cool" ? $("name") : who === "anon" ? null : $("twitch"))?.focus();
+};
+$("linkTwitch").onclick = () => { linked = !linked; platform = "twitch"; twitchShown(); if (linked) $("twitch").focus(); };
 function twitchShown() {
-  $("whoRow").hidden = $("anon").checked;
-  if ($("anon").checked) return { shown: "", login: "", ok: true };  // ชื่อ Twitch ที่จำไว้ยังอยู่ แค่ไม่ส่ง
+  for (const b of $("who").children) b.classList.toggle("on", b.dataset.w === who);
+  const account = who === "twitch" || who === "tiktok" || (who === "cool" && linked);
+  if (who === "cool" && linked) platform = "twitch";
+  $("name").hidden = who !== "cool";
+  $("twRow").hidden = !account;
+  $("linkTwitch").hidden = who !== "cool";
+  $("linkTwitch").textContent = linked ? "ไม่ผูก Twitch" : "ผูก Twitch ด้วย (ไม่บังคับ)";
+  const hint = $("twitchHint");
+  if (who === "anon") { hint.className = "hint"; hint.textContent = "ACE เรียกว่า \"ไม่ระบุชื่อ\""; return { shown: "", login: "", ok: true, platform }; }
+  if (!account) { hint.className = "hint"; hint.textContent = "ACE เรียกตามนี้เลย"; return { shown: "", login: "", ok: true, platform }; }
   const t = twitchTyped(), P = PLATFORMS[platform];
-  for (const b of $("plat").children) b.classList.toggle("on", b.dataset.p === platform);
-  $("platIcon").innerHTML = P.icon; $("platHost").textContent = P.host; $("useText").textContent = P.use;
-  $("useRow").hidden = !t.login || !t.ok;
-  $("nameRow").hidden = !!t.login && t.ok && $("useTwitch").checked;
-  $("twitchHint").className = t.ok ? "hint" : "hint bad";
-  $("twitchHint").textContent = t.ok ? P.hint : P.bad;
+  $("platIcon").innerHTML = P.icon; $("platHost").textContent = P.host;
+  hint.className = t.ok ? "hint" : "hint bad";
+  hint.textContent = !t.ok ? P.bad : who === "cool" ? "ACE เรียกชื่อเบียว · หัวใจของ ACE เข้าบัญชี Twitch นี้" : P.hint;
   return t;
 }
 $("twitch").oninput = twitchShown;
-$("useTwitch").onchange = twitchShown;
-$("anon").onchange = twitchShown;
 twitchShown();
+// dot hands (ตรงกับจุดของหน้า): ชี้ขวา ชี้ลง ยกนิ้ว
+const RIGHT = ["....#######", "..######...", ".#######...", "########...", "########...", ".######....", "..####....."];
+const turn = rows => [...rows[0]].map((_, x) => rows.map(row => row[x]).reverse().join(""));  // a quarter turn, clockwise
+const HANDS = {
+  right: RIGHT,
+  down: turn(RIGHT),
+  up: ["...##...", "...##...", "..###...", "..###...", "########", "#######.", "#######.", "######..", ".#####.."],
+};
+function handSvg(kind, cell = 3.6) {
+  const rows = HANDS[kind], w = rows[0].length * cell, h = rows.length * cell;
+  let dots = "";
+  rows.forEach((row, y) => [...row].forEach((c, x) => { if (c === "#") dots += `<circle cx="${(x + .5) * cell}" cy="${(y + .5) * cell}" r="${cell * .42}"/>`; }));
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" fill="#d9ccff" aria-hidden="true">${dots}</svg>`;
+}
+let ownAmount = false;  // the donor is typing their own amount: every chip gives a thumbs up
+function amountHands() {
+  const box = $("quick");
+  box.querySelectorAll(".hand").forEach(h => h.remove());
+  const chips = [...box.children].filter(b => b.dataset.amount), amt = Number($("amount").value);
+  const at = chips.findIndex(b => Number(b.dataset.amount) === amt);
+  if (ownAmount || (at < 0 && amt >= C.minAmount)) {
+    for (const b of chips) { const h = document.createElement("span"); h.className = "hand up"; h.innerHTML = handSvg("up", 2.4); b.appendChild(h); }
+    return;
+  }
+  if (at < 0) return;
+  const h = document.createElement("span");
+  if (at < chips.length - 1) {  // point at the next amount up
+    const next = chips[at + 1];
+    h.className = "hand right"; h.innerHTML = handSvg("right");  // its fingertip at the next amount's edge
+    h.style.left = (next.offsetLeft - RIGHT[0].length * 3.6 + 6) + "px"; h.style.top = (next.offsetTop + next.offsetHeight / 2) + "px";
+  } else {  // the biggest: point down at "your own amount"
+    const last = chips[at];
+    h.className = "hand down"; h.innerHTML = handSvg("down");
+    h.style.left = (last.offsetLeft + last.offsetWidth / 2) + "px"; h.style.top = (last.offsetTop + last.offsetHeight - 6) + "px";
+  }
+  box.appendChild(h);
+}
 for (const a of C.quickAmounts) {
   const b = document.createElement("button");
   b.className = "dots"; b.type = "button"; b.textContent = a; b.dataset.amount = a;
-  b.onclick = () => { $("amount").value = a; drawQr(); };
+  b.onclick = () => { ownAmount = false; $("amount").value = a; drawQr(); };
   $("quick").appendChild(b);
 }
+$("amount").onfocus = () => { ownAmount = true; amountHands(); };
+addEventListener("resize", () => amountHands());
 
 // ลิงก์ YouTube / TikTok -> { url, start } (ต้องตรงกับ aceace/donations/video.py และ setup-video.sql)
 function seconds(text) {
@@ -504,7 +603,8 @@ function drawQr() {
   const amt = Number($("amount").value);
   const ok = amt >= C.minAmount;
   $("big").textContent = ok ? amt.toLocaleString("th-TH", { maximumFractionDigits: 2 }) : "–";
-  for (const b of $("quick").children) b.classList.toggle("on", Number(b.dataset.amount) === amt);
+  for (const b of $("quick").children) b.classList.toggle("on", !ownAmount && Number(b.dataset.amount) === amt);
+  amountHands();
   const q = qrcode(0, "M");
   q.addData(promptpayPayload(C.promptpay, ok ? amt : 0));
   q.make();
@@ -547,10 +647,34 @@ $("file").onchange = async () => {
   $("send").disabled = false;
 };
 
-$("send").onclick = async () => {
+// แน่ใจนะ? ส่งทั้งที่ยังไม่มีเสียงหรือคลิป (เลือกอัดเสียงไว้แต่ยังไม่อัด ก็ด้วย): เตือนครั้งเดียวก่อนส่ง
+const nudgeNeeded = () => !$("extraCard").hidden && (extra === "" || (extra === "voice" && !voice) || (extra === "clip" && !$("video").value.trim()));
+function closeNudge() { $("nudge").hidden = true; }
+function pickExtra(kind) {
+  closeNudge(); extra = kind; drawQr();
+  const card = $(kind === "voice" ? "voiceCard" : "clipCard");
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (kind === "clip") setTimeout(() => $("video").focus(), 400);
+}
+$("nudgeVoice").onclick = () => pickExtra("voice");
+$("nudgeClip").onclick = () => pickExtra("clip");
+$("nudgeSend").onclick = () => { closeNudge(); sendNow(); };
+$("nudge").onclick = e => { if (e.target === $("nudge")) closeNudge(); };
+// ยังไม่มีรูปมีม (nudge.jpg): หน้า ACE แบบจุดแทน · เช็กตอนนี้ด้วย เผื่อรูปพังไปก่อนสคริปต์นี้ทำงาน
+const noMeme = () => { $("nudgeImg").hidden = true; $("nudgeFace").hidden = false; };
+$("nudgeImg").onerror = noMeme;
+if ($("nudgeImg").complete && !$("nudgeImg").naturalWidth) noMeme();
+for (const ch of FACE.join("")) { const d = document.createElement("b"); if (ch === "X") d.className = "on"; $("nudgeFace").appendChild(d); }
+$("send").onclick = () => {
+  if (who === "cool" && !$("name").value.trim()) { $("name").focus(); return say("พิมพ์ชื่อเบียวก่อน หรือกด ไม่บอกชื่อ", "bad"); }
+  if ((who === "twitch" || who === "tiktok") && !twitchTyped().login) { $("twitch").focus(); return say("ใส่ชื่อบัญชีก่อน หรือกด ชื่อเบียว / ไม่บอกชื่อ", "bad"); }
+  if (nudgeNeeded()) { $("nudge").hidden = false; return; }
+  sendNow();
+};
+async function sendNow() {
   const tw = twitchShown();
   if (!tw.ok) return say(platform === "tiktok" ? "ชื่อ TikTok ไม่ถูกต้อง" : "ชื่อ Twitch ไม่ถูกต้อง", "bad");
-  const name = $("anon").checked ? "ไม่ระบุชื่อ" : (tw.login && $("useTwitch").checked ? tw.shown : $("name").value.trim()) || "ไม่ระบุชื่อ";
+  const name = who === "anon" ? "ไม่ระบุชื่อ" : who === "cool" ? $("name").value.trim() : tw.shown || "ไม่ระบุชื่อ";
   const amount = Number($("amount").value);
   if (!(amount >= C.minAmount)) return say(`โดเนทขั้นต่ำ ${C.minAmount} บาท`, "bad");
   if (!slip) return;
@@ -575,9 +699,10 @@ $("send").onclick = async () => {
   }
   try {
     localStorage.setItem("donate-name", $("name").value.trim());
-    if (!$("anon").checked) localStorage.setItem("donate-twitch", twitchTyped().shown);
+    if (tw.login) localStorage.setItem("donate-twitch", tw.shown);
     localStorage.setItem("donate-platform", platform);
-    localStorage.setItem("donate-use-twitch", $("useTwitch").checked ? "1" : "0");
+    localStorage.setItem("donate-who", who);
+    localStorage.setItem("donate-linked", linked ? "1" : "0");
   } catch {}
   const ext = (slip.file.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
   const path = `${new Date().toISOString().slice(0, 10)}/${slip.transRef}.${ext}`;
